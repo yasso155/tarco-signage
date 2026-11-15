@@ -6,7 +6,7 @@
       "destination": "/admin.html"
     },
     {
-      "source": "/((?!assets/|engine\\.js|firebase-config\\.js|sw\\.js|admin\\.html|index\\.html).*)",
+      "source": "/:screen",
       "destination": "/index.html"
     }
   ]

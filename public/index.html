@@ -94,7 +94,7 @@ if (DEMO) {
     const fs = await import(base + 'firebase-firestore.js');
     const app = initializeApp(firebaseConfig);
     let db;
-    try { db = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache({ tabManager: fs.persistentSingleTabManager() }) }); }
+    try { db = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }) }); }
     catch (e) { db = fs.getFirestore(app); }
     fs.onSnapshot(fs.collection(db, 'posts'), (snap) => { posts = snap.docs.map((d) => ({ id: d.id, ...d.data() })); apply(); }, (e) => say('posts: ' + e.code));
     fs.onSnapshot(fs.doc(db, 'config', 'main'), (s) => { conf = s.data() || {}; apply(); }, (e) => say('config: ' + e.code));

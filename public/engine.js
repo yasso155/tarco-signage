@@ -17,8 +17,16 @@ const ease = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
 export const loadImg = (src) => new Promise((res, rej) => {
-  const i = new Image(); i.crossOrigin = 'anonymous';
-  i.onload = () => res(i); i.onerror = () => rej(new Error('image failed: ' + String(src).slice(0, 60))); i.src = src;
+  const i = new Image();
+  if (typeof src === 'string' && /^https?:\/\//i.test(src) && !src.startsWith(location.origin)) {
+    i.crossOrigin = 'anonymous';
+  }
+  i.onload = () => res(i);
+  i.onerror = (e) => {
+    console.error('loadImg failed for:', String(src).slice(0, 100), e);
+    rej(new Error('image failed: ' + String(src).slice(0, 60)));
+  };
+  i.src = src;
 });
 
 export async function loadFonts(base = 'assets/fonts/') {

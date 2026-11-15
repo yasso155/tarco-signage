@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // الأدمن = أي مستخدم له مستند في المجموعة admins (رقمه = UID الحساب). تُنشأ يدوياً من الـConsole.
+    function isAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // الشاشات تقرأ بدون تسجيل دخول؛ الكتابة للأدمن فقط
+    match /posts/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /config/{id} { allow read: if true; allow write: if isAdmin(); }
+
+    // نبضة الشاشة: كتابة محدودة الحقول من أي شاشة، والقراءة للأدمن
+    match /screens/{id} {
+      allow read, delete: if isAdmin();
+      allow create, update: if request.resource.data.keys().hasOnly(['lastSeen', 'count', 'ua'])
+                            && request.resource.data.lastSeen == request.time
+                            && request.resource.data.count is int
+                            && request.resource.data.ua is string
+                            && request.resource.data.ua.size() < 200
+                            && id.size() < 40;
+    }
+
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+  }
+}

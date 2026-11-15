@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tarco Screen</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0f26;overflow:hidden;cursor:none}
+  #stage{position:absolute;left:50%;top:50%;width:1080px;height:1920px;transform-origin:center center}
+  canvas{display:block;width:1080px;height:1920px}
+  #msg{position:fixed;inset:auto 0 12px 0;text-align:center;font:14px/1.4 system-ui,sans-serif;color:#7d86b5;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c"></canvas></div>
+<div id="msg"></div>
+<script type="module">
+import { Engine, loadFonts, loadImg } from './engine.js';
+import { firebaseConfig, configured, FIREBASE_VERSION, DEFAULT_CONFIG } from './firebase-config.js';
+
+const q = new URLSearchParams(location.search);
+const SCREEN = (q.get('screen') || 'default').toLowerCase();
+const ROTATE = Number(q.get('rotate') || 0);           // 90 / 270 when the TV is physically landscape in the OS
+const DEMO = !configured || q.get('demo') === '1';
+const msg = document.getElementById('msg');
+const say = (t) => { msg.textContent = t || ''; };
+
+// ---- fit the 1080x1920 stage to the window (optionally rotated) ----
+const stage = document.getElementById('stage');
+function fitStage() {
+  const sw = ROTATE % 180 ? 1920 : 1080, sh = ROTATE % 180 ? 1080 : 1920;
+  const s = Math.min(innerWidth / sw, innerHeight / sh);
+  stage.style.transform = `translate(-50%,-50%) rotate(${ROTATE}deg) scale(${s})`;
+}
+addEventListener('resize', fitStage); fitStage();
+
+// ---- engine ----
+await loadFonts();
+const [logo, qr] = await Promise.all([loadImg('assets/logo-white.png'), loadImg('assets/qr-default.png')]);
+const engine = new Engine(document.getElementById('c'), { logo, defaultQr: qr });
+engine.setConfig(DEFAULT_CONFIG);
+
+let t0 = performance.now(), lastTotal = 0;
+function loop(now) {
+  const total = engine.total;
+  if (total !== lastTotal) { lastTotal = total; }
+  const t = total ? ((now - t0) / 1000) % total : 0;
+  engine.render(t);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ---- playlist logic ----
+let posts = [], conf = {}, appliedQr = null;
+const today = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+function visible(p) {
+  if (p.active === false) return false;
+  const d = today();
+  if (p.from && d < p.from) return false;
+  if (p.to && d > p.to) return false;
+  const b = p.branches || [];
+  return !b.length || b.includes(SCREEN);
+}
+let applying = Promise.resolve();
+function apply() {
+  applying = applying.then(async () => {
+    const hold = conf.hold || DEFAULT_CONFIG.hold;
+    engine.setConfig({ hold, transition: conf.transition ?? DEFAULT_CONFIG.transition, zoom: conf.zoom ?? DEFAULT_CONFIG.zoom, footer: { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) } });
+    if (conf.qrImage !== appliedQr) {
+      appliedQr = conf.qrImage || null;
+      try { engine.setQr(appliedQr ? await loadImg(appliedQr) : null); } catch (e) { console.warn(e); }
+    }
+    const list = posts.filter(visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((p) => ({ id: p.id, key: p.id + ':' + (p.rev || 0) + ':' + (p.fit || ''), fit: p.fit || '', src: p.img, video: p.video || null, vdur: p.vdur || 0, seconds: p.seconds || null }));
+    const first = engine.items.length === 0;
+    await engine.setPosts(list);
+    if (first) t0 = performance.now();
+    window.__count = list.length;
+  }).catch((e) => console.error(e));
+  return applying;
+}
+setInterval(apply, 60 * 1000);   // re-evaluate date ranges
+
+// ---- data source ----
+if (DEMO) {
+  posts = [1, 2, 3, 4].map((n) => ({ id: 'demo' + n, img: `assets/samples/0${n}.jpg`, order: n, active: true, branches: [] }));
+  conf = { ...DEFAULT_CONFIG };
+  await apply();
+  say(configured ? '' : 'DEMO — firebase-config.js not set');
+} else {
+  try {
+    const V = FIREBASE_VERSION, base = `https://www.gstatic.com/firebasejs/${V}/`;
+    const { initializeApp } = await import(base + 'firebase-app.js');
+    const fs = await import(base + 'firebase-firestore.js');
+    const app = initializeApp(firebaseConfig);
+    let db;
+    try { db = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache({ tabManager: fs.persistentSingleTabManager() }) }); }
+    catch (e) { db = fs.getFirestore(app); }
+    fs.onSnapshot(fs.collection(db, 'posts'), (snap) => { posts = snap.docs.map((d) => ({ id: d.id, ...d.data() })); apply(); }, (e) => say('posts: ' + e.code));
+    fs.onSnapshot(fs.doc(db, 'config', 'main'), (s) => { conf = s.data() || {}; apply(); }, (e) => say('config: ' + e.code));
+    const beat = () => fs.setDoc(fs.doc(db, 'screens', SCREEN), { lastSeen: fs.serverTimestamp(), count: window.__count || 0, ua: navigator.userAgent.slice(0, 150) }).catch(() => {});
+    setTimeout(beat, 8000); setInterval(beat, 5 * 60 * 1000);
+  } catch (e) { console.error(e); say('Firebase error: ' + e.message); }
+}
+
+// ---- keep the screen alive ----
+async function wake() { try { await navigator.wakeLock?.request('screen'); } catch (e) { /* optional */ } }
+wake(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+setTimeout(() => location.reload(), 6 * 60 * 60 * 1000);          // daily-ish self refresh (6h)
+addEventListener('click', () => { document.documentElement.requestFullscreen?.().catch(() => {}); });
+if ('serviceWorker' in navigator && !DEMO) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

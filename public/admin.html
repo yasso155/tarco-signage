@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tarco Screens — لوحة التحكم</title>
+<style>
+@font-face{font-family:Bukra;font-weight:300;src:url(assets/fonts/Bukra-Light.otf)}
+@font-face{font-family:Bukra;font-weight:400;src:url(assets/fonts/Bukra-Regular.otf)}
+@font-face{font-family:Bukra;font-weight:700;src:url(assets/fonts/Bukra-Bold.otf)}
+:root{--bg:#0e1330;--panel:#161c42;--panel2:#1e2656;--line:rgba(255,255,255,.1);--fg:#eceffc;--muted:#a0a9d6;--red:#EB1D24;--blue:#2a6fd6;--ok:#2fbf71;--warn:#e8a93a;
+  --r:14px;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:400 15px/1.55 Bukra,system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+.vbadge{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:rgba(235,29,36,.18);color:#ff8a8e;margin-inline-start:6px;font-weight:400}
+a{color:#8fb4ff}
+.btn{border:1px solid var(--line);background:var(--panel2);padding:9px 16px;border-radius:10px;cursor:pointer;transition:.15s}
+.btn:hover{border-color:rgba(255,255,255,.3)} .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.chip:focus-visible{outline:2px solid #8fb4ff;outline-offset:2px}
+.btn.primary{background:var(--red);border-color:var(--red);font-weight:700} .btn.primary:hover{filter:brightness(1.1)}
+.btn.ghost{background:transparent} .btn.danger{color:#ff8a8e} .btn.sm{padding:5px 10px;font-size:13px}
+input[type=text],input[type=password],input[type=email],input[type=number],input[type=date],select,textarea{width:100%;min-width:0;background:#0f1535;border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+textarea{resize:vertical;min-height:74px}
+label.f{display:grid;gap:6px;color:var(--muted);font-size:13px}
+.muted{color:var(--muted)}
+
+/* gate */
+#gate{min-height:100%;display:grid;place-items:center;padding:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:28px;width:min(420px,100%)}
+.card img{width:200px;display:block;margin:0 auto 18px}
+.card h1{font-size:20px;margin:0 0 18px;text-align:center}
+.card form{display:grid;gap:14px}
+.err{color:#ff8a8e;font-size:13px;min-height:1.2em}
+.uid{direction:ltr;text-align:left;background:#0f1535;border:1px dashed var(--line);padding:10px;border-radius:10px;font:13px/1.4 ui-monospace,monospace;word-break:break-all;user-select:all}
+
+/* app */
+header{display:flex;align-items:center;gap:16px;padding:12px max(16px,env(safe-area-inset-right));border-bottom:1px solid var(--line);background:#0b0f2a;position:sticky;top:0;z-index:5}
+header img{height:38px} header .sp{flex:1}
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;padding:24px max(16px,env(safe-area-inset-right)) 60px;max-width:1500px;margin:auto;align-items:start}
+aside{position:sticky;top:76px;display:grid;gap:12px}
+.pv{background:#05081c;border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;gap:10px}
+.pv canvas{width:100%;aspect-ratio:9/16;display:block;border-radius:10px;background:#000}
+.pv .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tab{background:none;border:0;padding:10px 16px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab[aria-selected=true]{color:var(--fg);border-color:var(--red);font-weight:700}
+.drop{display:grid;place-items:center;gap:4px;border:2px dashed rgba(255,255,255,.22);border-radius:var(--r);padding:26px;text-align:center;cursor:pointer;margin-bottom:18px;transition:.15s}
+.drop:hover,.drop.on{border-color:var(--red);background:rgba(235,29,36,.06)}
+.drop input{display:none}
+#list{display:grid;gap:12px}
+.post{display:grid;grid-template-columns:104px minmax(0,1fr) 120px;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;align-items:start}
+.post.off{opacity:.55}
+.post .th{width:104px;height:104px;border-radius:10px;object-fit:cover;background:#05081c}
+.post .meta{display:grid;gap:10px;min-width:0}
+.post .name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid3{display:grid;grid-template-columns:minmax(0,.7fr) minmax(0,1fr) minmax(0,1fr);gap:10px}.grid3>*,.post .meta>*{min-width:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 12px;font-size:13px;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}
+.acts{display:grid;gap:6px;justify-items:stretch}
+.sw{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--muted)}
+.sw input{width:38px;height:22px;appearance:none;background:#33396a;border-radius:99px;position:relative;cursor:pointer;transition:.15s;margin:0}
+.sw input::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
+.sw input:checked{background:var(--ok)} .sw input:checked::after{inset-inline-start:19px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px;display:grid;gap:14px}
+.panel h2{margin:0;font-size:16px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.qrp{display:flex;gap:14px;align-items:center;flex-wrap:wrap} .qrp img{width:96px;height:96px;object-fit:contain;background:#fff;border-radius:10px;padding:4px}
+.br{display:grid;grid-template-columns:150px 1fr auto;gap:8px;align-items:center}
+table{width:100%;border-collapse:collapse} th,td{padding:10px 8px;text-align:start;border-bottom:1px solid var(--line);font-size:14px}
+th{color:var(--muted);font-weight:400;font-size:13px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555b88;margin-inline-end:8px}
+.dot.on{background:var(--ok);box-shadow:0 0 0 4px rgba(47,191,113,.18)} .dot.stale{background:var(--warn)}
+.url{direction:ltr;text-align:left;font:12px ui-monospace,monospace;color:var(--muted);word-break:break-all}
+#toast{position:fixed;bottom:20px;inset-inline:0;display:grid;place-items:center;pointer-events:none;z-index:20}
+#toast div{background:#fff;color:#0e1330;padding:10px 18px;border-radius:10px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;transform:translateY(8px);transition:.2s}
+#toast div.on{opacity:1;transform:none}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+@media (max-width:980px){main{grid-template-columns:minmax(0,1fr)}aside{position:static;order:-1}.pv canvas{max-width:300px;margin:auto}}
+@media (max-width:640px){#who{display:none}header img{height:30px}.post{grid-template-columns:80px minmax(0,1fr)}.post .th{width:80px;height:80px}.acts{grid-column:1/-1;grid-auto-flow:column;justify-content:start}.grid3{grid-template-columns:1fr 1fr}.grid3>label:first-child{grid-column:1/-1}.br{grid-template-columns:1fr 1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <img src="assets/logo-white.png" alt="Tarco Aviation">
+    <h1>لوحة تحكم الشاشات</h1>
+    <form id="loginForm" hidden>
+      <label class="f">البريد الإلكتروني<input id="email" type="email" autocomplete="username" required></label>
+      <label class="f">كلمة المرور<input id="pass" type="password" autocomplete="current-password" required></label>
+      <div class="err" id="loginErr" role="alert"></div>
+      <button class="btn primary" type="submit">دخول</button>
+    </form>
+    <div id="gateMsg" class="muted" style="display:grid;gap:12px"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <img src="assets/logo-white.png" alt="Tarco Aviation">
+    <strong>الشاشات</strong>
+    <span class="sp"></span>
+    <span class="muted" id="who"></span>
+    <button class="btn sm ghost" id="logout" type="button">خروج</button>
+  </header>
+  <main>
+    <section>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-tab="posts">البوستات</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="settings">الفوتر والإعدادات</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="screens">الشاشات والفروع</button>
+      </div>
+
+      <div id="t-posts">
+        <label class="drop" id="drop">
+          <input type="file" id="files" accept="image/*,video/mp4,video/webm,video/quicktime" multiple>
+          <strong>اسحب صور أو فيديوهات البوستات هنا أو اضغط للاختيار</strong>
+          <span class="muted">الصور: تُضغط تلقائياً، الأفضل مربّعة 1:1. الفيديو: MP4 (H.264) عمودي 1080×1920 أو أفقي 1920×1080، بدون صوت، والأفضل أقل من 50MB.</span>
+        </label>
+        <div id="list"></div>
+      </div>
+
+      <div id="t-settings" hidden>
+        <div class="panel">
+          <h2>التوقيت والحركة</h2>
+          <div class="cols">
+            <label class="f">مدة كل بوست (ثانية)<input id="c-hold" type="number" min="3" max="120" step="1"></label>
+            <label class="f">مدة الانتقال (ثانية)<input id="c-tr" type="number" min="0.3" max="3" step="0.1"></label>
+            <label class="f">قوة الزوم البطيء (0 – 0.1)<input id="c-zoom" type="number" min="0" max="0.1" step="0.01"></label>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>فوتر خدمة العملاء</h2>
+          <div class="cols">
+            <label class="f">العنوان<input id="c-label" type="text"></label>
+            <label class="f">رقم الهاتف (يُعرض متصلاً)<input id="c-phone" type="text" inputmode="numeric" dir="ltr"></label>
+            <label class="f">عنوان الـQR<input id="c-qrt" type="text"></label>
+            <label class="f">سطر ثانٍ للـQR<input id="c-qrs" type="text"></label>
+          </div>
+          <label class="f">أوقات العمل (كل سطر في سطر، اتركها فارغة لإخفائها)<textarea id="c-hours"></textarea></label>
+          <div class="qrp">
+            <img id="qrPrev" alt="QR">
+            <div style="display:grid;gap:8px">
+              <span class="muted">صورة الـQR المعروضة في الفوتر</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <label class="btn sm" style="cursor:pointer">رفع QR جديد<input id="qrFile" type="file" accept="image/*" hidden></label>
+                <button class="btn sm ghost" id="qrReset" type="button">الرجوع للـQR الافتراضي</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="btn primary" id="saveCfg" type="button">حفظ الإعدادات</button>
+      </div>
+
+      <div id="t-screens" hidden>
+        <div class="panel">
+          <h2>الفروع</h2>
+          <p class="muted" style="margin:0">كل شاشة تفتح رابطاً خاصاً بفرعها. تقدر تخصّص بوست لفروع معينة من تبويب البوستات.</p>
+          <div id="brList" style="display:grid;gap:8px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn sm" id="brAdd" type="button">+ إضافة فرع</button>
+            <button class="btn sm primary" id="brSave" type="button">حفظ الفروع</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>حالة الشاشات</h2>
+          <div style="overflow-x:auto"><table>
+            <thead><tr><th>الفرع</th><th>الحالة</th><th>بوستات معروضة</th><th>الرابط</th></tr></thead>
+            <tbody id="scrBody"></tbody>
+          </table></div>
+          <p class="muted" style="margin:0;font-size:13px">الشاشة تُرسل نبضة كل 5 دقائق. «متصلة» تعني آخر نبضة قبل أقل من 8 دقائق.</p>
+        </div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="pv">
+        <canvas id="pv" aria-label="معاينة حيّة"></canvas>
+        <div class="row">
+          <select id="pvBranch" style="width:auto;flex:1" aria-label="فرع المعاينة"></select>
+          <button class="btn sm" id="pvPlay" type="button">إيقاف</button>
+        </div>
+        <div class="muted" id="pvInfo" style="font-size:13px"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+<div id="toast"><div id="toastIn"></div></div>
+
+<script type="module">
+import { Engine, loadFonts, loadImg } from './engine.js';
+import { firebaseConfig, configured, FIREBASE_VERSION, DEFAULT_BRANCHES, DEFAULT_CONFIG } from './firebase-config.js';
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let toastT; const toast = (t) => { const e = $('#toastIn'); e.textContent = t; e.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('on'), 2400); };
+
+const gateMsg = $('#gateMsg');
+if (!configured) {
+  gateMsg.innerHTML = '<strong>لم يتم ربط Firebase بعد.</strong><span>افتح <code>public/firebase-config.js</code> وضع قيم مشروعك، ثم أعد نشر الصفحات (التفاصيل في README).</span>';
+} else boot();
+
+async function boot() {
+  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+  const [{ initializeApp }, A, F, S] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js'), import(base + 'firebase-storage.js')]);
+  const app = initializeApp(firebaseConfig), auth = A.getAuth(app), db = F.getFirestore(app), storage = S.getStorage(app);
+
+  // ---- state ----
+  let posts = [], conf = {}, screens = {}, branches = DEFAULT_BRANCHES, previewEngine = null, started = false, unsubs = [];
+
+  // ---- login ----
+  const form = $('#loginForm'); form.hidden = false;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault(); $('#loginErr').textContent = '';
+    try { await A.signInWithEmailAndPassword(auth, $('#email').value.trim(), $('#pass').value); }
+    catch (err) { $('#loginErr').textContent = /invalid|wrong|user-not-found|credential/i.test(err.code + err.message) ? 'البريد أو كلمة المرور غير صحيحة' : 'تعذّر الدخول: ' + (err.code || err.message); }
+  });
+  $('#logout').onclick = () => A.signOut(auth);
+
+  A.onAuthStateChanged(auth, async (user) => {
+    unsubs.forEach((u) => u()); unsubs = [];
+    if (!user) { $('#app').hidden = true; $('#gate').hidden = false; form.hidden = false; gateMsg.innerHTML = ''; return; }
+    let ok = false; try { ok = (await F.getDoc(F.doc(db, 'admins', user.uid))).exists(); } catch (e) { ok = false; }
+    if (!ok) {
+      form.hidden = true;
+      gateMsg.innerHTML = `<strong>هذا الحساب غير مفعّل كأدمن.</strong><span>في Firebase Console > Firestore أنشئ مستنداً في المجموعة <code>admins</code> رقمه (Document ID) هو هذا الـUID، بأي حقل (مثلاً <code>ok: true</code>) ثم حدّث الصفحة:</span><div class="uid">${esc(user.uid)}</div><button class="btn sm" id="gOut" type="button">تسجيل خروج</button>`;
+      $('#gOut').onclick = () => A.signOut(auth); return;
+    }
+    $('#gate').hidden = true; $('#app').hidden = false; $('#who').textContent = user.email || '';
+    await startApp();
+  });
+
+  // ---- app ----
+  async function startApp() {
+    if (!started) {
+      started = true;
+      await loadFonts();
+      const [logo, qr] = await Promise.all([loadImg('assets/logo-white.png'), loadImg('assets/qr-default.png')]);
+      previewEngine = new Engine($('#pv'), { logo, defaultQr: qr });
+      previewEngine.setConfig(DEFAULT_CONFIG);
+      let t0 = performance.now(), paused = false, pausedAt = 0;
+      const loop = (now) => { if (!paused) { const T = previewEngine.total; previewEngine.render(T ? ((now - t0) / 1000) % T : 0); } requestAnimationFrame(loop); };
+      requestAnimationFrame(loop);
+      $('#pvPlay').onclick = () => { paused = !paused; if (paused) pausedAt = performance.now(); else t0 += performance.now() - pausedAt; $('#pvPlay').textContent = paused ? 'تشغيل' : 'إيقاف'; };
+      $('#pvBranch').onchange = refreshPreview;
+      document.querySelectorAll('.tab').forEach((b) => b.onclick = () => {
+        document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', x === b));
+        ['posts', 'settings', 'screens'].forEach((k) => $('#t-' + k).hidden = k !== b.dataset.tab);
+      });
+      bindUi();
+    }
+    unsubs.push(F.onSnapshot(F.collection(db, 'posts'), (s) => { posts = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); renderPosts(); refreshPreview(); renderScreens(); }, (e) => toast('خطأ قراءة: ' + e.code)));
+    unsubs.push(F.onSnapshot(F.doc(db, 'config', 'main'), (s) => { conf = s.data() || {}; branches = conf.branches?.length ? conf.branches : DEFAULT_BRANCHES; fillSettings(); renderBranches(); fillBranchSelect(); renderPosts(); refreshPreview(); renderScreens(); }));
+    unsubs.push(F.onSnapshot(F.collection(db, 'screens'), (s) => { screens = {}; s.docs.forEach((d) => screens[d.id] = d.data()); renderScreens(); }));
+    setInterval(renderScreens, 30000);
+  }
+
+  // ---- helpers ----
+  const today = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  const visibleFor = (p, screen) => p.active !== false && !(p.from && today() < p.from) && !(p.to && today() > p.to) && (!(p.branches || []).length || p.branches.includes(screen));
+  const brName = (id) => branches.find((b) => b.id === id)?.name || id;
+
+  async function prepare(file, max = 1200, q0 = 0.86) {
+    const bmp = await createImageBitmap(file);
+    const sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, c.width, c.height);
+    let url = '', q = q0;
+    for (; q > 0.4; q -= 0.08) { url = c.toDataURL('image/jpeg', q); if (url.length < 680000) break; }
+    if (url.length >= 980000) throw new Error('الصورة كبيرة جداً');
+    return url;
+  }
+
+  // ---- posts ----
+  function renderPosts() {
+    const el = $('#list');
+    if (!posts.length) { el.innerHTML = '<div class="empty">ما في بوستات بعد. ارفع أول صورة من الأعلى.</div>'; return; }
+    el.innerHTML = posts.map((p, i) => `
+      <article class="post ${p.active === false ? 'off' : ''}" data-id="${p.id}">
+        <img class="th" src="${p.img}" alt="">
+        <div class="meta">
+          <div class="name" title="${esc(p.name)}">${i + 1}. ${esc(p.name || 'بوست')}${p.video ? ` <span class="vbadge">🎬 فيديو${p.vdur ? ' · ' + Math.round(p.vdur) + 'ث' : ''}</span>` : ''}</div>
+          <div class="grid3">
+            <label class="f">المدة (ثانية)<input type="number" min="3" max="120" data-k="seconds" value="${p.seconds || ''}" placeholder="${p.video ? (p.vdur ? Math.round(p.vdur) + ' (كامل الفيديو)' : 'كامل الفيديو') : (conf.hold || DEFAULT_CONFIG.hold)}"></label>
+            <label class="f">يبدأ من<input type="date" data-k="from" value="${p.from || ''}"></label>
+            <label class="f">ينتهي في<input type="date" data-k="to" value="${p.to || ''}"></label>
+          </div>
+          ${p.video ? `<label class="f" style="margin-top:8px">عرض الفيديو<select data-k="fit"><option value="" ${p.fit ? '' : 'selected'}>الفيديو كامل (بدون قص)</option><option value="fill" ${p.fit === 'fill' ? 'selected' : ''}>ملء الكارد (قص من الأطراف)</option></select></label>` : ''}
+          <div class="chips" role="group" aria-label="الفروع">
+            <button class="chip" data-act="all" aria-pressed="${!(p.branches || []).length}">كل الفروع</button>
+            ${branches.map((b) => `<button class="chip" data-act="br" data-b="${esc(b.id)}" aria-pressed="${(p.branches || []).includes(b.id)}">${esc(b.name)}</button>`).join('')}
+          </div>
+        </div>
+        <div class="acts">
+          <label class="sw"><input type="checkbox" data-k="active" ${p.active === false ? '' : 'checked'}>فعّال</label>
+          <button class="btn sm" data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="للأعلى">▲ أعلى</button>
+          <button class="btn sm" data-act="down" ${i === posts.length - 1 ? 'disabled' : ''} aria-label="للأسفل">▼ أسفل</button>
+          <button class="btn sm danger" data-act="del">حذف</button>
+        </div>
+      </article>`).join('');
+  }
+
+  async function upd(id, patch) { try { await F.updateDoc(F.doc(db, 'posts', id), patch); } catch (e) { toast('تعذّر الحفظ: ' + (e.code || e.message)); } }
+  async function reorder(id, dir) {
+    const i = posts.findIndex((p) => p.id === id), j = i + dir; if (j < 0 || j >= posts.length) return;
+    const arr = posts.slice(); [arr[i], arr[j]] = [arr[j], arr[i]];
+    const b = F.writeBatch(db); arr.forEach((p, k) => b.update(F.doc(db, 'posts', p.id), { order: (k + 1) * 10 }));
+    try { await b.commit(); } catch (e) { toast('تعذّر الترتيب: ' + (e.code || e.message)); }
+  }
+  function bindUi() {
+    $('#list').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-act]'); if (!btn) return;
+      const id = btn.closest('.post').dataset.id, p = posts.find((x) => x.id === id), act = btn.dataset.act;
+      if (act === 'up') reorder(id, -1); else if (act === 'down') reorder(id, 1);
+      else if (act === 'del') { if (confirm('حذف هذا البوست نهائياً؟')) { try { await F.deleteDoc(F.doc(db, 'posts', id)); if (p.storagePath) { try { await S.deleteObject(S.ref(storage, p.storagePath)); } catch (e2) { console.warn(e2); } } toast('تم الحذف'); } catch (er) { toast('تعذّر الحذف'); } } }
+      else if (act === 'all') upd(id, { branches: [] });
+      else if (act === 'br') { const cur = new Set(p.branches || []); cur.has(btn.dataset.b) ? cur.delete(btn.dataset.b) : cur.add(btn.dataset.b); upd(id, { branches: [...cur] }); }
+    });
+    $('#list').addEventListener('change', (e) => {
+      const k = e.target.dataset.k; if (!k) return; const id = e.target.closest('.post').dataset.id;
+      if (k === 'active') upd(id, { active: e.target.checked });
+      else if (k === 'seconds') upd(id, { seconds: e.target.value ? Math.max(3, Math.min(120, Number(e.target.value))) : null });
+      else upd(id, { [k]: e.target.value || '' });
+    });
+    const drop = $('#drop'), files = $('#files');
+    ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('on'); }));
+    ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('on'); }));
+    drop.addEventListener('drop', (e) => addFiles([...e.dataTransfer.files]));
+    files.addEventListener('change', () => { addFiles([...files.files]); files.value = ''; });
+    $('#saveCfg').onclick = saveSettings;
+    $('#qrFile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { pendingQr = await prepare(f, 900, 0.92); $('#qrPrev').src = pendingQr; toast('اضغط «حفظ الإعدادات» لتطبيق الـQR'); } catch (er) { toast(er.message); } e.target.value = ''; };
+    $('#qrReset').onclick = () => { pendingQr = null; $('#qrPrev').src = 'assets/qr-default.png'; toast('اضغط «حفظ الإعدادات» للرجوع للـQR الافتراضي'); };
+    $('#brAdd').onclick = () => { branchDraft.push({ id: '', name: '' }); renderBranches(true); };
+    $('#brSave').onclick = saveBranches;
+    $('#brList').addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if (b) { branchDraft.splice(Number(b.dataset.del), 1); renderBranches(true); } });
+    $('#scrBody').addEventListener('click', async (e) => { const b = e.target.closest('[data-copy]'); if (!b) return; try { await navigator.clipboard.writeText(b.dataset.copy); toast('تم نسخ الرابط'); } catch (er) { toast('انسخ الرابط يدوياً'); } });
+  }
+  async function addFiles(fs) {
+    fs = fs.filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/')); if (!fs.length) return;
+    let n = 0, max = posts.reduce((m, p) => Math.max(m, p.order ?? 0), 0);
+    for (const f of fs) {
+      toast(`جارٍ الرفع ${++n}/${fs.length}…`);
+      try {
+        max += 10;
+        if (f.type.startsWith('video/')) { await addVideo(f, max, `${n}/${fs.length}`); continue; }
+        const img = await prepare(f);
+        await F.setDoc(F.doc(F.collection(db, 'posts')), { img, name: f.name.replace(/\.[^.]+$/, ''), order: max, seconds: null, active: true, from: '', to: '', branches: [], rev: Date.now(), createdAt: F.serverTimestamp() });
+      } catch (e) { toast(`تعذّر رفع ${f.name}: ${e.code || e.message}`); await new Promise((r) => setTimeout(r, 1500)); }
+    }
+    toast('تم الرفع ✓');
+  }
+
+  // ---- video upload (Firebase Storage) ----
+  const once = (el, ok, bad = 'error') => new Promise((res, rej) => { el.addEventListener(ok, () => res(), { once: true }); el.addEventListener(bad, () => rej(new Error('تعذّر قراءة الفيديو — استخدم MP4 بترميز H.264')), { once: true }); });
+  async function inspectVideo(file) {
+    const url = URL.createObjectURL(file), v = document.createElement('video');
+    v.muted = true; v.preload = 'auto'; v.playsInline = true; v.src = url;
+    try {
+      await once(v, 'loadeddata');
+      const dur = v.duration, w = v.videoWidth, h = v.videoHeight;
+      if (!isFinite(dur) || !w) throw new Error('تعذّر قراءة الفيديو');
+      v.currentTime = Math.min(1, dur / 3); await once(v, 'seeked');
+      const sc = Math.min(1, 1200 / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      let poster = '', q = 0.82; for (; q > 0.4; q -= 0.08) { poster = c.toDataURL('image/jpeg', q); if (poster.length < 400000) break; }
+      return { poster, dur, w, h };
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function addVideo(f, order, label) {
+    if (f.size > 200 * 1024 * 1024) throw new Error('الفيديو أكبر من 200MB');
+    const info = await inspectVideo(f);
+    const safe = f.name.replace(/[^\w.\-]+/g, '_').slice(-60), path = `videos/${Date.now()}-${safe}`, r = S.ref(storage, path);
+    const task = S.uploadBytesResumable(r, f, { contentType: f.type || 'video/mp4' });
+    await new Promise((res, rej) => task.on('state_changed', (s) => toast(`رفع الفيديو ${label}: ${Math.round(100 * s.bytesTransferred / s.totalBytes)}%`), rej, res));
+    const url = await S.getDownloadURL(r);
+    await F.setDoc(F.doc(F.collection(db, 'posts')), { type: 'video', video: url, storagePath: path, img: info.poster, vdur: Math.round(info.dur * 10) / 10, vw: info.w, vh: info.h,
+      name: f.name.replace(/\.[^.]+$/, ''), order, seconds: null, active: true, from: '', to: '', branches: [], rev: Date.now(), createdAt: F.serverTimestamp() });
+    if (!((info.w === 1080 && info.h === 1920) || (info.w === 1920 && info.h === 1080))) toast(`تم الرفع (الدقة ${info.w}×${info.h} — الموصى بها 1080×1920 أو 1920×1080)`);
+  }
+
+  // ---- settings ----
+  let pendingQr;   // undefined = unchanged, null = reset to default, string = new image
+  function fillSettings() {
+    const c = { ...DEFAULT_CONFIG, ...conf, footer: { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) } };
+    if (document.activeElement && $('#t-settings').contains(document.activeElement)) return;   // do not overwrite while typing
+    $('#c-hold').value = c.hold; $('#c-tr').value = c.transition; $('#c-zoom').value = c.zoom;
+    $('#c-label').value = c.footer.label; $('#c-phone').value = c.footer.phone; $('#c-qrt').value = c.footer.qrTitle; $('#c-qrs').value = c.footer.qrSub; $('#c-hours').value = c.footer.hours;
+    pendingQr = undefined; $('#qrPrev').src = conf.qrImage || 'assets/qr-default.png';
+  }
+  async function saveSettings() {
+    const next = {
+      hold: Number($('#c-hold').value) || 8, transition: Number($('#c-tr').value) || 0.9, zoom: Math.min(0.1, Math.max(0, Number($('#c-zoom').value) || 0)),
+      footer: { label: $('#c-label').value.trim(), phone: $('#c-phone').value.replace(/\s+/g, ''), qrTitle: $('#c-qrt').value.trim(), qrSub: $('#c-qrs').value.trim(), hours: $('#c-hours').value.trim() },
+      qrImage: pendingQr === undefined ? (conf.qrImage || null) : pendingQr,
+      branches: conf.branches?.length ? conf.branches : branches, updatedAt: F.serverTimestamp()
+    };
+    try { await F.setDoc(F.doc(db, 'config', 'main'), next, { merge: true }); toast('تم حفظ الإعدادات ✓'); } catch (e) { toast('تعذّر الحفظ: ' + (e.code || e.message)); }
+  }
+
+  // ---- branches / screens ----
+  let branchDraft = [];
+  function renderBranches(keep) {
+    if (!keep) branchDraft = branches.map((b) => ({ ...b }));
+    $('#brList').innerHTML = branchDraft.map((b, i) => `<div class="br"><input type="text" dir="ltr" placeholder="id (jeddah)" value="${esc(b.id)}" data-bi="${i}" data-f="id" aria-label="معرّف الفرع"><input type="text" placeholder="اسم الفرع" value="${esc(b.name)}" data-bi="${i}" data-f="name" aria-label="اسم الفرع"><button class="btn sm danger" data-del="${i}" type="button">حذف</button></div>`).join('');
+    $('#brList').querySelectorAll('input').forEach((inp) => inp.oninput = () => { branchDraft[inp.dataset.bi][inp.dataset.f] = inp.value; });
+  }
+  async function saveBranches() {
+    const list = branchDraft.map((b) => ({ id: b.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''), name: b.name.trim() })).filter((b) => b.id && b.name);
+    if (new Set(list.map((b) => b.id)).size !== list.length) { toast('معرّف الفرع مكرر'); return; }
+    try { await F.setDoc(F.doc(db, 'config', 'main'), { branches: list }, { merge: true }); toast('تم حفظ الفروع ✓'); } catch (e) { toast('تعذّر الحفظ'); }
+  }
+  function ago(ts) {
+    const ms = ts?.toMillis ? ts.toMillis() : 0; if (!ms) return null; return Date.now() - ms;
+  }
+  function renderScreens() {
+    const ids = [...new Set([...branches.map((b) => b.id), ...Object.keys(screens)])];
+    $('#scrBody').innerHTML = ids.map((id) => {
+      const s = screens[id], a = s && ago(s.lastSeen);
+      const on = a !== null && a !== undefined && a < 8 * 60 * 1000, stale = a !== null && a !== undefined && !on;
+      const txt = a == null ? 'لم تتصل بعد' : on ? 'متصلة' : `آخر اتصال قبل ${a > 3600000 ? Math.round(a / 3600000) + ' ساعة' : Math.round(a / 60000) + ' دقيقة'}`;
+      const url = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}?screen=${id}`;
+      const cnt = posts.filter((p) => visibleFor(p, id)).length;
+      return `<tr><td>${esc(brName(id))}<div class="muted" style="font-size:12px" dir="ltr">${esc(id)}</div></td><td><span class="dot ${on ? 'on' : stale ? 'stale' : ''}"></span>${txt}</td><td>${cnt}</td><td><div class="url">${esc(url)}</div><button class="btn sm" data-copy="${esc(url)}" type="button">نسخ الرابط</button></td></tr>`;
+    }).join('');
+  }
+
+  // ---- preview ----
+  function fillBranchSelect() {
+    const sel = $('#pvBranch'), cur = sel.value;
+    sel.innerHTML = '<option value="">كل الفروع (عام)</option>' + branches.map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join(''); sel.value = cur;
+  }
+  let applying = Promise.resolve(), qrApplied = '__';
+  function refreshPreview() {
+    if (!previewEngine) return;
+    applying = applying.then(async () => {
+      const c = { ...DEFAULT_CONFIG, ...conf, footer: { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) } };
+      previewEngine.setConfig({ hold: c.hold, transition: c.transition, zoom: c.zoom, footer: c.footer });
+      if ((conf.qrImage || null) !== qrApplied) { qrApplied = conf.qrImage || null; try { previewEngine.setQr(qrApplied ? await loadImg(qrApplied) : null); } catch (e) { /* keep default */ } }
+      const br = $('#pvBranch').value;
+      const list = posts.filter((p) => visibleFor(p, br || '__general__'))
+        .map((p) => ({ id: p.id, key: p.id + ':' + (p.rev || 0) + ':' + (p.fit || ''), fit: p.fit || '', src: p.img, video: p.video || null, vdur: p.vdur || 0, seconds: p.seconds || null }));
+      await previewEngine.setPosts(list);
+      $('#pvInfo').textContent = list.length ? `${list.length} بوست · الدورة الكاملة ${Math.round(previewEngine.total)} ثانية` : 'لا توجد بوستات فعّالة لهذا الفرع الآن';
+    }).catch((e) => console.error(e));
+  }
+}
+</script>
+</body>
+</html>

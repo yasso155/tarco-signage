@@ -434,7 +434,7 @@ async function boot() {
       const s = screens[id], a = s && ago(s.lastSeen);
       const on = a !== null && a !== undefined && a < 8 * 60 * 1000, stale = a !== null && a !== undefined && !on;
       const txt = a == null ? 'لم تتصل بعد' : on ? 'متصلة' : `آخر اتصال قبل ${a > 3600000 ? Math.round(a / 3600000) + ' ساعة' : Math.round(a / 60000) + ' دقيقة'}`;
-      const url = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}?screen=${id}`;
+      const url = `${location.origin}/${id}`;
       const cnt = posts.filter((p) => visibleFor(p, id)).length;
       return `<tr><td>${esc(brName(id))}<div class="muted" style="font-size:12px" dir="ltr">${esc(id)}</div></td><td><span class="dot ${on ? 'on' : stale ? 'stale' : ''}"></span>${txt}</td><td>${cnt}</td><td><div class="url">${esc(url)}</div><button class="btn sm" data-copy="${esc(url)}" type="button">نسخ الرابط</button></td></tr>`;
     }).join('');

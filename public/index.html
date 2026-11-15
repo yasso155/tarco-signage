@@ -19,7 +19,13 @@ import { Engine, loadFonts, loadImg } from './engine.js';
 import { firebaseConfig, configured, FIREBASE_VERSION, DEFAULT_CONFIG } from './firebase-config.js';
 
 const q = new URLSearchParams(location.search);
-const SCREEN = (q.get('screen') || 'default').toLowerCase();
+const cleanPath = location.pathname.replace(/^\/|\/$/g, '').toLowerCase();
+const hashPath = location.hash.replace(/^#\/?/, '').toLowerCase();
+const SCREEN = (
+  q.get('screen') ||
+  hashPath ||
+  (cleanPath && cleanPath !== 'index.html' && cleanPath !== 'admin.html' && cleanPath !== 'admin' ? cleanPath : 'default')
+).toLowerCase();
 const ROTATE = Number(q.get('rotate') || 0);           // 90 / 270 when the TV is physically landscape in the OS
 const DEMO = !configured || q.get('demo') === '1';
 const msg = document.getElementById('msg');

@@ -90,7 +90,12 @@ th{color:var(--muted);font-weight:400;font-size:13px}
     <h1>لوحة تحكم الشاشات</h1>
     <form id="loginForm" hidden>
       <label class="f">البريد الإلكتروني<input id="email" type="email" autocomplete="username" required></label>
-      <label class="f">كلمة المرور<input id="pass" type="password" autocomplete="current-password" required></label>
+      <label class="f">كلمة المرور
+        <div style="position:relative;display:flex;align-items:center">
+          <input id="pass" type="password" autocomplete="current-password" required style="padding-left:40px">
+          <button type="button" id="togglePass" style="position:absolute;left:8px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:4px" title="إظهار/إخفاء">👁</button>
+        </div>
+      </label>
       <div class="err" id="loginErr" role="alert"></div>
       <button class="btn primary" type="submit">دخول</button>
     </form>
@@ -213,6 +218,14 @@ async function boot() {
 
   // ---- login ----
   const form = $('#loginForm'); form.hidden = false;
+  const toggleBtn = $('#togglePass'), passInp = $('#pass');
+  if (toggleBtn) {
+    toggleBtn.onclick = () => {
+      const isPass = passInp.type === 'password';
+      passInp.type = isPass ? 'text' : 'password';
+      toggleBtn.textContent = isPass ? '🔒' : '👁';
+    };
+  }
   form.addEventListener('submit', async (e) => {
     e.preventDefault(); $('#loginErr').textContent = '';
     try { await A.signInWithEmailAndPassword(auth, $('#email').value.trim(), $('#pass').value); }

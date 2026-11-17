@@ -67,9 +67,11 @@ aside{position:sticky;top:76px;display:grid;gap:12px}
 .panel h2{margin:0;font-size:16px}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .qrp{display:flex;gap:14px;align-items:center;flex-wrap:wrap} .qrp img{width:96px;height:96px;object-fit:contain;background:#fff;border-radius:10px;padding:4px}
-.br{display:grid;grid-template-columns:140px 1fr auto auto;gap:8px;align-items:center}
+.br{display:grid;grid-template-columns:130px 1fr auto auto auto;gap:8px;align-items:center}
 .orient-btn{padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-size:12px;white-space:nowrap;transition:.15s}
 .orient-btn.ls{background:rgba(42,111,214,.25);border-color:#2a6fd6;color:#8fb4ff}
+dialog{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:var(--r);padding:24px;width:min(540px,94vw);box-shadow:0 24px 60px rgba(0,0,0,.6)}
+dialog::backdrop{background:rgba(0,0,0,.75);backdrop-filter:blur(4px)}
 table{width:100%;border-collapse:collapse} th,td{padding:10px 8px;text-align:start;border-bottom:1px solid var(--line);font-size:14px}
 th{color:var(--muted);font-weight:400;font-size:13px}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555b88;margin-inline-end:8px}
@@ -175,7 +177,7 @@ th{color:var(--muted);font-weight:400;font-size:13px}
         <div class="panel">
           <h2>حالة الشاشات</h2>
           <div style="overflow-x:auto"><table>
-            <thead><tr><th>الفرع</th><th>الحالة</th><th>بوستات معروضة</th><th>الرابط</th></tr></thead>
+            <thead><tr><th>الفرع</th><th>الحالة</th><th>بوستات معروضة</th><th>الرابط</th><th>الوضع والتخصيص</th></tr></thead>
             <tbody id="scrBody"></tbody>
           </table></div>
           <p class="muted" style="margin:0;font-size:13px">الشاشة تُرسل نبضة كل 5 دقائق. «متصلة» تعني آخر نبضة قبل أقل من 8 دقائق.</p>
@@ -195,6 +197,55 @@ th{color:var(--muted);font-weight:400;font-size:13px}
     </aside>
   </main>
 </div>
+<dialog id="brModal">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <h2 style="margin:0;font-size:18px" id="bmTitle">تخصيص الفرع</h2>
+    <button class="btn sm ghost" type="button" id="bmClose">✕</button>
+  </div>
+  <div style="display:grid;gap:16px">
+    <div style="display:grid;gap:8px">
+      <label class="f">اتجاه الشاشة لهذا الفرع</label>
+      <div style="display:flex;gap:8px">
+        <button class="btn sm" type="button" id="bmOrientPortrait">📱 عمودي (1080×1920)</button>
+        <button class="btn sm" type="button" id="bmOrientLandscape">🖥 أفقي (1920×1080)</button>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--line);padding-top:14px;display:grid;gap:12px">
+      <h3 style="margin:0;font-size:15px">رمز الـ QR الخاص بهذا الفرع</h3>
+      <div class="qrp">
+        <img id="bmQrPrev" alt="QR" style="width:80px;height:80px;object-fit:contain;background:#fff;border-radius:10px;padding:4px">
+        <div style="display:grid;gap:6px">
+          <span class="muted" id="bmQrStatus" style="font-size:12px"></span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <label class="btn sm" style="cursor:pointer">رفع QR خاص<input id="bmQrFile" type="file" accept="image/*" hidden></label>
+            <button class="btn sm ghost" id="bmQrReset" type="button">استخدام الـQR العام</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--line);padding-top:14px;display:grid;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;font-size:15px">تفاصيل الفوتر للفرع</h3>
+        <span class="muted" style="font-size:12px">اترك الحقل فارغاً لاستخدام الإعداد العام</span>
+      </div>
+      <div class="cols">
+        <label class="f">العنوان<input id="bmLabel" type="text" placeholder="خدمة العملاء (افتراضي)"></label>
+        <label class="f">رقم الهاتف<input id="bmPhone" type="text" dir="ltr" placeholder="920027276 (افتراضي)"></label>
+        <label class="f">عنوان الـ QR<input id="bmQrt" type="text" placeholder="امسح الكود للتواصل (افتراضي)"></label>
+        <label class="f">سطر ثانٍ للـ QR<input id="bmQrs" type="text" placeholder="عبر واتساب مباشرة (افتراضي)"></label>
+      </div>
+      <label class="f">أوقات العمل<textarea id="bmHours" placeholder="أوقات العمل الخاصة بهذا الفرع (اتركها فارغة للافتراضي)"></textarea></label>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn ghost" type="button" id="bmCancel">إلغاء</button>
+      <button class="btn primary" type="button" id="bmSave">حفظ تخصيص الفرع</button>
+    </div>
+  </div>
+</dialog>
+
 <div id="toast"><div id="toastIn"></div></div>
 
 <script type="module">
@@ -348,10 +399,98 @@ async function boot() {
     $('#saveCfg').onclick = saveSettings;
     $('#qrFile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { pendingQr = await prepare(f, 900, 0.92); $('#qrPrev').src = pendingQr; toast('اضغط «حفظ الإعدادات» لتطبيق الـQR'); } catch (er) { toast(er.message); } e.target.value = ''; };
     $('#qrReset').onclick = () => { pendingQr = null; $('#qrPrev').src = 'assets/qr-default.png'; toast('اضغط «حفظ الإعدادات» للرجوع للـQR الافتراضي'); };
-    $('#brAdd').onclick = () => { branchDraft.push({ id: '', name: '' }); renderBranches(true); };
+    $('#brAdd').onclick = () => { branchDraft.push({ id: '', name: '', landscape: false }); renderBranches(true); };
     $('#brSave').onclick = saveBranches;
-    $('#brList').addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if (b) { branchDraft.splice(Number(b.dataset.del), 1); renderBranches(true); } });
-    $('#scrBody').addEventListener('click', async (e) => { const b = e.target.closest('[data-copy]'); if (!b) return; try { await navigator.clipboard.writeText(b.dataset.copy); toast('تم نسخ الرابط'); } catch (er) { toast('انسخ الرابط يدوياً'); } });
+    $('#brList').addEventListener('click', (e) => {
+      const delBtn = e.target.closest('[data-del]');
+      if (delBtn) { branchDraft.splice(Number(delBtn.dataset.del), 1); renderBranches(true); return; }
+      const customBtn = e.target.closest('[data-custom]');
+      if (customBtn) {
+        const i = Number(customBtn.dataset.bi);
+        const b = branchDraft[i];
+        if (b && b.id) openBranchModal(b.id);
+        else toast('يرجى كتابة معرّف الفرع أولاً');
+      }
+    });
+    $('#scrBody').addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('[data-copy]');
+      if (copyBtn) {
+        try { await navigator.clipboard.writeText(copyBtn.dataset.copy); toast('تم نسخ الرابط'); } catch (er) { toast('انسخ الرابط يدوياً'); }
+        return;
+      }
+      const orientBtn = e.target.closest('[data-scr-orient]');
+      if (orientBtn) {
+        const id = orientBtn.dataset.scrOrient;
+        const b = branches.find(x => x.id === id);
+        if (!b) return;
+        b.landscape = !b.landscape;
+        const d = branchDraft.find(x => x.id === id);
+        if (d) d.landscape = b.landscape;
+        try {
+          await F.setDoc(F.doc(db, 'config', 'main'), { branches }, { merge: true });
+          toast(`تم تغيير وضع ${b.name} إلى ${b.landscape ? 'أفقي 🖥' : 'عمودي 📱'}`);
+        } catch (err) {
+          toast('تعذّر الحفظ: ' + (err.code || err.message));
+        }
+        return;
+      }
+      const customBtn = e.target.closest('[data-scr-custom]');
+      if (customBtn) {
+        openBranchModal(customBtn.dataset.scrCustom);
+      }
+    });
+
+    // Branch customization modal bindings
+    $('#bmClose').onclick = () => $('#brModal').close();
+    $('#bmCancel').onclick = () => $('#brModal').close();
+    $('#bmOrientPortrait').onclick = () => { modalLandscape = false; updateModalOrientButtons(); };
+    $('#bmOrientLandscape').onclick = () => { modalLandscape = true; updateModalOrientButtons(); };
+    $('#bmQrFile').onchange = async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      try {
+        modalPendingQr = await prepare(f, 900, 0.92);
+        $('#bmQrPrev').src = modalPendingQr;
+        $('#bmQrStatus').textContent = 'تم اختيار QR خاص بالفرع (اضغط حفظ للتطبيق)';
+      } catch (err) {
+        toast(err.message);
+      }
+      e.target.value = '';
+    };
+    $('#bmQrReset').onclick = () => {
+      modalPendingQr = null;
+      $('#bmQrPrev').src = conf.qrImage || 'assets/qr-default.png';
+      $('#bmQrStatus').textContent = 'سيتم استخدام الـQR العام الافتراضي (اضغط حفظ)';
+    };
+    $('#bmSave').onclick = async () => {
+      const b = branches.find(x => x.id === editingBranchId);
+      if (!b) return;
+      b.landscape = modalLandscape;
+      b.qrImage = modalPendingQr;
+      b.footer = {
+        label: $('#bmLabel').value.trim(),
+        phone: $('#bmPhone').value.replace(/\s+/g, ''),
+        qrTitle: $('#bmQrt').value.trim(),
+        qrSub: $('#bmQrs').value.trim(),
+        hours: $('#bmHours').value.trim()
+      };
+      const d = branchDraft.find(x => x.id === editingBranchId);
+      if (d) {
+        d.landscape = b.landscape;
+        d.qrImage = b.qrImage;
+        d.footer = { ...b.footer };
+      }
+      try {
+        await F.setDoc(F.doc(db, 'config', 'main'), { branches }, { merge: true });
+        $('#brModal').close();
+        toast('تم حفظ تخصيص الفرع بنجاح ✓');
+        renderBranches(true);
+        renderScreens();
+        refreshPreview();
+      } catch (err) {
+        toast('تعذّر الحفظ: ' + (err.code || err.message));
+      }
+    };
   }
   async function addFiles(fs) {
     fs = fs.filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/')); if (!fs.length) return;
@@ -415,11 +554,53 @@ async function boot() {
     try { await F.setDoc(F.doc(db, 'config', 'main'), next, { merge: true }); toast('تم حفظ الإعدادات ✓'); } catch (e) { toast('تعذّر الحفظ: ' + (e.code || e.message)); }
   }
 
+  // ---- branch modal & customization ----
+  let editingBranchId = null, modalPendingQr = undefined, modalLandscape = false;
+
+  function updateModalOrientButtons() {
+    $('#bmOrientPortrait').className = `btn sm ${!modalLandscape ? 'primary' : 'ghost'}`;
+    $('#bmOrientLandscape').className = `btn sm ${modalLandscape ? 'primary' : 'ghost'}`;
+  }
+
+  function openBranchModal(id) {
+    const b = branches.find((x) => x.id === id) || branchDraft.find((x) => x.id === id);
+    if (!b) return;
+    editingBranchId = id;
+    modalLandscape = b.landscape === true;
+    modalPendingQr = b.qrImage || null;
+    updateModalOrientButtons();
+
+    $('#bmTitle').textContent = `تخصيص فرع: ${b.name} (${b.id})`;
+    if (modalPendingQr) {
+      $('#bmQrPrev').src = modalPendingQr;
+      $('#bmQrStatus').textContent = 'يستخدم رمز QR خاص بهذا الفرع';
+    } else {
+      $('#bmQrPrev').src = conf.qrImage || 'assets/qr-default.png';
+      $('#bmQrStatus').textContent = 'يستخدم الـQR العام حالياً';
+    }
+
+    const ft = b.footer || {};
+    $('#bmLabel').value = ft.label || '';
+    $('#bmPhone').value = ft.phone || '';
+    $('#bmQrt').value = ft.qrTitle || '';
+    $('#bmQrs').value = ft.qrSub || '';
+    $('#bmHours').value = ft.hours || '';
+
+    $('#brModal').showModal();
+  }
+
   // ---- branches / screens ----
   let branchDraft = [];
   function renderBranches(keep) {
     if (!keep) branchDraft = branches.map((b) => ({ ...b }));
-    $('#brList').innerHTML = branchDraft.map((b, i) => `<div class="br"><input type="text" dir="ltr" placeholder="id (jeddah)" value="${esc(b.id)}" data-bi="${i}" data-f="id" aria-label="معرّف الفرع"><input type="text" placeholder="اسم الفرع" value="${esc(b.name)}" data-bi="${i}" data-f="name" aria-label="اسم الفرع"><button class="orient-btn ${b.landscape ? 'ls' : ''}" data-bi="${i}" data-orient title="وضع الشاشة">${b.landscape ? '🖥 أفقي' : '📱 عمودي'}</button><button class="btn sm danger" data-del="${i}" type="button">حذف</button></div>`).join('');
+    $('#brList').innerHTML = branchDraft.map((b, i) => `
+      <div class="br">
+        <input type="text" dir="ltr" placeholder="id (jeddah)" value="${esc(b.id)}" data-bi="${i}" data-f="id" aria-label="معرّف الفرع">
+        <input type="text" placeholder="اسم الفرع" value="${esc(b.name)}" data-bi="${i}" data-f="name" aria-label="اسم الفرع">
+        <button class="orient-btn ${b.landscape ? 'ls' : ''}" data-bi="${i}" data-orient type="button" title="وضع الشاشة">${b.landscape ? '🖥 أفقي' : '📱 عمودي'}</button>
+        <button class="btn sm ghost" data-bi="${i}" data-custom type="button" title="تخصيص تفاصيل هذا الفرع">⚙️ تخصيص</button>
+        <button class="btn sm danger" data-del="${i}" type="button">حذف</button>
+      </div>`).join('');
     $('#brList').querySelectorAll('input').forEach((inp) => inp.oninput = () => { branchDraft[inp.dataset.bi][inp.dataset.f] = inp.value; });
     $('#brList').querySelectorAll('[data-orient]').forEach((btn) => btn.onclick = () => {
       const i = Number(btn.dataset.bi);
@@ -427,14 +608,28 @@ async function boot() {
       renderBranches(true);
     });
   }
+
   async function saveBranches() {
-    const list = branchDraft.map((b) => ({ id: b.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''), name: b.name.trim(), landscape: b.landscape ? true : false })).filter((b) => b.id && b.name);
+    const list = branchDraft.map((b) => ({
+      id: b.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''),
+      name: b.name.trim(),
+      landscape: b.landscape ? true : false,
+      qrImage: b.qrImage || null,
+      footer: b.footer || {}
+    })).filter((b) => b.id && b.name);
     if (new Set(list.map((b) => b.id)).size !== list.length) { toast('معرّف الفرع مكرر'); return; }
-    try { await F.setDoc(F.doc(db, 'config', 'main'), { branches: list }, { merge: true }); toast('تم حفظ الفروع ✓'); } catch (e) { toast('تعذّر الحفظ'); }
+    try {
+      await F.setDoc(F.doc(db, 'config', 'main'), { branches: list }, { merge: true });
+      toast('تم حفظ الفروع ✓');
+    } catch (e) {
+      toast('تعذّر الحفظ');
+    }
   }
+
   function ago(ts) {
     const ms = ts?.toMillis ? ts.toMillis() : 0; if (!ms) return null; return Date.now() - ms;
   }
+
   function renderScreens() {
     const ids = [...new Set([...branches.map((b) => b.id), ...Object.keys(screens)])];
     $('#scrBody').innerHTML = ids.map((id) => {
@@ -442,27 +637,59 @@ async function boot() {
       const on = a !== null && a !== undefined && a < 8 * 60 * 1000, stale = a !== null && a !== undefined && !on;
       const txt = a == null ? 'لم تتصل بعد' : on ? 'متصلة' : `آخر اتصال قبل ${a > 3600000 ? Math.round(a / 3600000) + ' ساعة' : Math.round(a / 60000) + ' دقيقة'}`;
       const brData = branches.find((b) => b.id === id);
-      const isLandscape = brData?.landscape;
-      const url = isLandscape ? `${location.origin}/#${id}?rotate=90` : `${location.origin}/#${id}`;
+      const isLandscape = brData?.landscape === true;
+      const url = `${location.origin}/#${id}`;
       const cnt = posts.filter((p) => visibleFor(p, id)).length;
       const orientLabel = isLandscape ? '🖥 أفقي' : '📱 عمودي';
-      return `<tr><td>${esc(brName(id))}<div class="muted" style="font-size:12px" dir="ltr">${esc(id)}</div></td><td><span class="dot ${on ? 'on' : stale ? 'stale' : ''}"></span>${txt}</td><td>${cnt}</td><td><div class="url">${esc(url)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm" data-copy="${esc(url)}" type="button">نسخ الرابط</button><span class="muted" style="font-size:12px;align-self:center">${orientLabel}</span></div></td></tr>`;
+      const hasCustom = !!(brData?.qrImage || Object.values(brData?.footer || {}).some((v) => v && String(v).trim()));
+      return `<tr>
+        <td>
+          <strong>${esc(brName(id))}</strong>
+          <div class="muted" style="font-size:12px" dir="ltr">${esc(id)}</div>
+        </td>
+        <td><span class="dot ${on ? 'on' : stale ? 'stale' : ''}"></span>${txt}</td>
+        <td>${cnt}</td>
+        <td>
+          <div class="url">${esc(url)}</div>
+          <button class="btn sm" data-copy="${esc(url)}" type="button" style="margin-top:4px">نسخ الرابط</button>
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button class="orient-btn ${isLandscape ? 'ls' : ''}" data-scr-orient="${esc(id)}" type="button" title="اضغط للتبديل السريع بين أفقي وعمودي">${orientLabel}</button>
+            <button class="btn sm ghost" data-scr-custom="${esc(id)}" type="button" title="تخصيص الـQR والفوتر لهذا الفرع">⚙️ تخصيص ${hasCustom ? '<span style="color:#2fbf71;margin-inline-start:4px">●</span>' : ''}</button>
+          </div>
+        </td>
+      </tr>`;
     }).join('');
   }
 
   // ---- preview ----
   function fillBranchSelect() {
     const sel = $('#pvBranch'), cur = sel.value;
-    sel.innerHTML = '<option value="">كل الفروع (عام)</option>' + branches.map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join(''); sel.value = cur;
+    sel.innerHTML = '<option value="">كل الفروع (عام)</option>' + branches.map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
+    sel.value = cur;
   }
   let applying = Promise.resolve(), qrApplied = '__';
   function refreshPreview() {
     if (!previewEngine) return;
     applying = applying.then(async () => {
-      const c = { ...DEFAULT_CONFIG, ...conf, footer: { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) } };
-      previewEngine.setConfig({ hold: c.hold, transition: c.transition, zoom: c.zoom, footer: c.footer });
-      if ((conf.qrImage || null) !== qrApplied) { qrApplied = conf.qrImage || null; try { previewEngine.setQr(qrApplied ? await loadImg(qrApplied) : null); } catch (e) { /* keep default */ } }
       const br = $('#pvBranch').value;
+      const brData = branches.find((b) => b.id === br);
+
+      const effectiveFooter = { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) };
+      if (brData?.footer) {
+        for (const [k, v] of Object.entries(brData.footer)) {
+          if (v && String(v).trim()) effectiveFooter[k] = String(v).trim();
+        }
+      }
+      const effectiveQr = brData?.qrImage || conf.qrImage || null;
+
+      previewEngine.setConfig({ hold: conf.hold || DEFAULT_CONFIG.hold, transition: conf.transition ?? DEFAULT_CONFIG.transition, zoom: conf.zoom ?? DEFAULT_CONFIG.zoom, footer: effectiveFooter });
+      if (effectiveQr !== qrApplied) {
+        qrApplied = effectiveQr;
+        try { previewEngine.setQr(effectiveQr ? await loadImg(effectiveQr) : null); } catch (e) { /* keep default */ }
+      }
+
       const list = posts.filter((p) => visibleFor(p, br || '__general__'))
         .map((p) => ({ id: p.id, key: p.id + ':' + (p.rev || 0) + ':' + (p.fit || ''), fit: p.fit || '', src: p.img, video: p.video || null, vdur: p.vdur || 0, seconds: p.seconds || null }));
       await previewEngine.setPosts(list);

@@ -20,7 +20,6 @@ import { firebaseConfig, configured, FIREBASE_VERSION, DEFAULT_CONFIG } from './
 
 const q = new URLSearchParams(location.search);
 const cleanPath = location.pathname.replace(/^\/|\/$/g, '').toLowerCase();
-// Hash may contain params: /#riyadh?rotate=90  →  hashScreen=riyadh, hashQ has rotate=90
 const rawHash = location.hash.replace(/^#\/?/, '');
 const hashScreen = rawHash.split('?')[0].toLowerCase();
 const hashQ = new URLSearchParams(rawHash.includes('?') ? rawHash.split('?')[1] : '');
@@ -29,46 +28,62 @@ const SCREEN = (
   hashScreen ||
   (cleanPath && cleanPath !== 'index.html' && cleanPath !== 'admin.html' && cleanPath !== 'admin' ? cleanPath : 'default')
 ).toLowerCase();
-const ROTATE = Number(q.get('rotate') || hashQ.get('rotate') || 0);  // supports ?rotate=90 in URL or inside hash
-const LANDSCAPE = ROTATE % 180 !== 0;                   // true for rotate=90 or rotate=270 — also set via Firestore branch config
+const urlRotate = Number(q.get('rotate') || hashQ.get('rotate') || 0);
+let currentLandscape = urlRotate % 180 !== 0;
 const DEMO = !configured || q.get('demo') === '1';
 const msg = document.getElementById('msg');
 const say = (t) => { msg.textContent = t || ''; };
 
 // ---- fit stage to window ----
-// Portrait (rotate=0/180): 1080×1920 canvas, CSS-rotated if needed.
-// Landscape (rotate=90/270): native 1920×1080 canvas, no CSS rotation.
 const stage = document.getElementById('stage');
-if (LANDSCAPE) {
-  stage.style.width = '1920px'; stage.style.height = '1080px';
-  document.querySelector('canvas').style.width = '1920px'; document.querySelector('canvas').style.height = '1080px';
-}
+const canvas = document.getElementById('c');
+
 function fitStage() {
-  if (LANDSCAPE) {
+  if (!stage) return;
+  if (currentLandscape) {
     const s = Math.min(innerWidth / 1920, innerHeight / 1080);
     stage.style.transform = `translate(-50%,-50%) scale(${s})`;
   } else {
-    const sw = ROTATE % 180 ? 1920 : 1080, sh = ROTATE % 180 ? 1080 : 1920;
-    const s = Math.min(innerWidth / sw, innerHeight / sh);
-    stage.style.transform = `translate(-50%,-50%) rotate(${ROTATE}deg) scale(${s})`;
+    const s = Math.min(innerWidth / 1080, innerHeight / 1920);
+    stage.style.transform = `translate(-50%,-50%) scale(${s})`;
   }
 }
-addEventListener('resize', fitStage); fitStage();
+addEventListener('resize', fitStage);
 
-// ---- engine ----
+// ---- engine setup ----
 await loadFonts();
 const [logo, qr] = await Promise.all([loadImg('assets/logo-white.png'), loadImg('assets/qr-default.png')]);
-const engine = LANDSCAPE
-  ? new LandscapeEngine(document.getElementById('c'), { logo, defaultQr: qr })
-  : new Engine(document.getElementById('c'), { logo, defaultQr: qr });
+let engine = null;
+
+function setEngineOrientation(landscape) {
+  if (engine && currentLandscape === landscape) return false;
+  currentLandscape = landscape;
+  if (landscape) {
+    stage.style.width = '1920px'; stage.style.height = '1080px';
+    canvas.width = 1920; canvas.height = 1080;
+    canvas.style.width = '1920px'; canvas.style.height = '1080px';
+    engine = new LandscapeEngine(canvas, { logo, defaultQr: qr });
+  } else {
+    stage.style.width = '1080px'; stage.style.height = '1920px';
+    canvas.width = 1080; canvas.height = 1920;
+    canvas.style.width = '1080px'; canvas.style.height = '1920px';
+    engine = new Engine(canvas, { logo, defaultQr: qr });
+  }
+  fitStage();
+  return true;
+}
+
+setEngineOrientation(currentLandscape);
 engine.setConfig(DEFAULT_CONFIG);
 
 let t0 = performance.now(), lastTotal = 0;
 function loop(now) {
-  const total = engine.total;
-  if (total !== lastTotal) { lastTotal = total; }
-  const t = total ? ((now - t0) / 1000) % total : 0;
-  engine.render(t);
+  if (engine) {
+    const total = engine.total;
+    if (total !== lastTotal) { lastTotal = total; }
+    const t = total ? ((now - t0) / 1000) % total : 0;
+    engine.render(t);
+  }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
@@ -84,29 +99,53 @@ function visible(p) {
   const b = p.branches || [];
   return !b.length || b.includes(SCREEN);
 }
+
 let applying = Promise.resolve();
 function apply() {
   applying = applying.then(async () => {
-    const hold = conf.hold || DEFAULT_CONFIG.hold;
-    engine.setConfig({ hold, transition: conf.transition ?? DEFAULT_CONFIG.transition, zoom: conf.zoom ?? DEFAULT_CONFIG.zoom, footer: { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) } });
-    if (conf.qrImage !== appliedQr) {
-      appliedQr = conf.qrImage || null;
-      try { engine.setQr(appliedQr ? await loadImg(appliedQr) : null); } catch (e) { console.warn(e); }
-    }
-    // Check if branch landscape setting changed — reload if orientation mismatch
+    // 1. Detect branch configuration from Firestore
     const branchData = (conf.branches || []).find((b) => b.id === SCREEN);
-    const shouldBeLandscape = branchData?.landscape === true;
-    if (shouldBeLandscape !== LANDSCAPE) {
-      // Orientation changed in admin — rebuild hash URL with/without rotate and reload
-      const newHash = shouldBeLandscape ? `#${SCREEN}?rotate=90` : `#${SCREEN}`;
-      location.replace(location.pathname + newHash);
-      return;
+    const shouldBeLandscape = (urlRotate % 180 !== 0) || (branchData?.landscape === true);
+    const orientationSwitched = setEngineOrientation(shouldBeLandscape);
+
+    // 2. Compute effective footer (branch footer overrides global footer)
+    const brFooter = branchData?.footer || {};
+    const effectiveFooter = {
+      ...DEFAULT_CONFIG.footer,
+      ...(conf.footer || {})
+    };
+    for (const [k, v] of Object.entries(brFooter)) {
+      if (v && String(v).trim()) effectiveFooter[k] = String(v).trim();
     }
+
+    // 3. Compute effective QR (branch QR overrides global QR)
+    const effectiveQr = branchData?.qrImage || conf.qrImage || null;
+
+    // 4. Configure engine
+    const hold = conf.hold || DEFAULT_CONFIG.hold;
+    engine.setConfig({
+      hold,
+      transition: conf.transition ?? DEFAULT_CONFIG.transition,
+      zoom: conf.zoom ?? DEFAULT_CONFIG.zoom,
+      footer: effectiveFooter
+    });
+
+    if (effectiveQr !== appliedQr || orientationSwitched) {
+      appliedQr = effectiveQr;
+      try {
+        engine.setQr(appliedQr ? await loadImg(appliedQr) : null);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    // 5. Update playlist items
     const list = posts.filter(visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map((p) => ({ id: p.id, key: p.id + ':' + (p.rev || 0) + ':' + (p.fit || ''), fit: p.fit || '', src: p.img, video: p.video || null, vdur: p.vdur || 0, seconds: p.seconds || null }));
-    const first = engine.items.length === 0;
+
+    const wasEmpty = engine.items.length === 0;
     await engine.setPosts(list);
-    if (first) t0 = performance.now();
+    if (orientationSwitched || wasEmpty) t0 = performance.now();
     window.__count = list.length;
   }).catch((e) => console.error(e));
   return applying;

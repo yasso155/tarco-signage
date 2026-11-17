@@ -177,7 +177,7 @@ th{color:var(--muted);font-weight:400;font-size:13px}
         <div class="panel">
           <h2>حالة الشاشات</h2>
           <div style="overflow-x:auto"><table>
-            <thead><tr><th>الفرع</th><th>الحالة</th><th>بوستات معروضة</th><th>الرابط</th><th>الوضع والتخصيص</th></tr></thead>
+            <thead><tr><th>الفرع</th><th>الحالة</th><th>بوستات معروضة</th><th>الرابط</th></tr></thead>
             <tbody id="scrBody"></tbody>
           </table></div>
           <p class="muted" style="margin:0;font-size:13px">الشاشة تُرسل نبضة كل 5 دقائق. «متصلة» تعني آخر نبضة قبل أقل من 8 دقائق.</p>
@@ -636,12 +636,8 @@ async function boot() {
       const s = screens[id], a = s && ago(s.lastSeen);
       const on = a !== null && a !== undefined && a < 8 * 60 * 1000, stale = a !== null && a !== undefined && !on;
       const txt = a == null ? 'لم تتصل بعد' : on ? 'متصلة' : `آخر اتصال قبل ${a > 3600000 ? Math.round(a / 3600000) + ' ساعة' : Math.round(a / 60000) + ' دقيقة'}`;
-      const brData = branches.find((b) => b.id === id);
-      const isLandscape = brData?.landscape === true;
       const url = `${location.origin}/#${id}`;
       const cnt = posts.filter((p) => visibleFor(p, id)).length;
-      const orientLabel = isLandscape ? '🖥 أفقي' : '📱 عمودي';
-      const hasCustom = !!(brData?.qrImage || Object.values(brData?.footer || {}).some((v) => v && String(v).trim()));
       return `<tr>
         <td>
           <strong>${esc(brName(id))}</strong>
@@ -652,12 +648,6 @@ async function boot() {
         <td>
           <div class="url">${esc(url)}</div>
           <button class="btn sm" data-copy="${esc(url)}" type="button" style="margin-top:4px">نسخ الرابط</button>
-        </td>
-        <td>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button class="orient-btn ${isLandscape ? 'ls' : ''}" data-scr-orient="${esc(id)}" type="button" title="اضغط للتبديل السريع بين أفقي وعمودي">${orientLabel}</button>
-            <button class="btn sm ghost" data-scr-custom="${esc(id)}" type="button" title="تخصيص الـQR والفوتر لهذا الفرع">⚙️ تخصيص ${hasCustom ? '<span style="color:#2fbf71;margin-inline-start:4px">●</span>' : ''}</button>
-          </div>
         </td>
       </tr>`;
     }).join('');

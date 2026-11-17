@@ -27,7 +27,7 @@ const SCREEN = (
   (cleanPath && cleanPath !== 'index.html' && cleanPath !== 'admin.html' && cleanPath !== 'admin' ? cleanPath : 'default')
 ).toLowerCase();
 const ROTATE = Number(q.get('rotate') || 0);           // 90 / 270 when the TV is physically landscape in the OS
-const LANDSCAPE = ROTATE % 180 !== 0;                   // true for rotate=90 or rotate=270
+const LANDSCAPE = ROTATE % 180 !== 0;                   // true for rotate=90 or rotate=270 — also set via Firestore branch config
 const DEMO = !configured || q.get('demo') === '1';
 const msg = document.getElementById('msg');
 const say = (t) => { msg.textContent = t || ''; };
@@ -89,6 +89,17 @@ function apply() {
     if (conf.qrImage !== appliedQr) {
       appliedQr = conf.qrImage || null;
       try { engine.setQr(appliedQr ? await loadImg(appliedQr) : null); } catch (e) { console.warn(e); }
+    }
+    // Check if branch landscape setting changed — reload if orientation mismatch
+    const branchData = (conf.branches || []).find((b) => b.id === SCREEN);
+    const shouldBeLandscape = branchData?.landscape === true;
+    if (shouldBeLandscape !== LANDSCAPE && !q.get('rotate')) {
+      // Orientation changed in admin — reload with correct rotate param
+      const newUrl = new URL(location.href);
+      if (shouldBeLandscape) newUrl.searchParams.set('rotate', '90');
+      else newUrl.searchParams.delete('rotate');
+      location.replace(newUrl.toString());
+      return;
     }
     const list = posts.filter(visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map((p) => ({ id: p.id, key: p.id + ':' + (p.rev || 0) + ':' + (p.fit || ''), fit: p.fit || '', src: p.img, video: p.video || null, vdur: p.vdur || 0, seconds: p.seconds || null }));

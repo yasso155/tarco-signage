@@ -602,10 +602,11 @@ async function boot() {
         <button class="btn sm danger" data-del="${i}" type="button">حذف</button>
       </div>`).join('');
     $('#brList').querySelectorAll('input').forEach((inp) => inp.oninput = () => { branchDraft[inp.dataset.bi][inp.dataset.f] = inp.value; });
-    $('#brList').querySelectorAll('[data-orient]').forEach((btn) => btn.onclick = () => {
+    $('#brList').querySelectorAll('[data-orient]').forEach((btn) => btn.onclick = async () => {
       const i = Number(btn.dataset.bi);
       branchDraft[i].landscape = !branchDraft[i].landscape;
       renderBranches(true);
+      await saveBranches();
     });
   }
 

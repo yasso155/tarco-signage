@@ -15,7 +15,7 @@
 <div id="stage"><canvas id="c"></canvas></div>
 <div id="msg"></div>
 <script type="module">
-import { Engine, loadFonts, loadImg } from './engine.js';
+import { Engine, LandscapeEngine, loadFonts, loadImg } from './engine.js';
 import { firebaseConfig, configured, FIREBASE_VERSION, DEFAULT_CONFIG } from './firebase-config.js';
 
 const q = new URLSearchParams(location.search);
@@ -27,23 +27,37 @@ const SCREEN = (
   (cleanPath && cleanPath !== 'index.html' && cleanPath !== 'admin.html' && cleanPath !== 'admin' ? cleanPath : 'default')
 ).toLowerCase();
 const ROTATE = Number(q.get('rotate') || 0);           // 90 / 270 when the TV is physically landscape in the OS
+const LANDSCAPE = ROTATE % 180 !== 0;                   // true for rotate=90 or rotate=270
 const DEMO = !configured || q.get('demo') === '1';
 const msg = document.getElementById('msg');
 const say = (t) => { msg.textContent = t || ''; };
 
-// ---- fit the 1080x1920 stage to the window (optionally rotated) ----
+// ---- fit stage to window ----
+// Portrait (rotate=0/180): 1080×1920 canvas, CSS-rotated if needed.
+// Landscape (rotate=90/270): native 1920×1080 canvas, no CSS rotation.
 const stage = document.getElementById('stage');
+if (LANDSCAPE) {
+  stage.style.width = '1920px'; stage.style.height = '1080px';
+  document.querySelector('canvas').style.width = '1920px'; document.querySelector('canvas').style.height = '1080px';
+}
 function fitStage() {
-  const sw = ROTATE % 180 ? 1920 : 1080, sh = ROTATE % 180 ? 1080 : 1920;
-  const s = Math.min(innerWidth / sw, innerHeight / sh);
-  stage.style.transform = `translate(-50%,-50%) rotate(${ROTATE}deg) scale(${s})`;
+  if (LANDSCAPE) {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%,-50%) scale(${s})`;
+  } else {
+    const sw = ROTATE % 180 ? 1920 : 1080, sh = ROTATE % 180 ? 1080 : 1920;
+    const s = Math.min(innerWidth / sw, innerHeight / sh);
+    stage.style.transform = `translate(-50%,-50%) rotate(${ROTATE}deg) scale(${s})`;
+  }
 }
 addEventListener('resize', fitStage); fitStage();
 
 // ---- engine ----
 await loadFonts();
 const [logo, qr] = await Promise.all([loadImg('assets/logo-white.png'), loadImg('assets/qr-default.png')]);
-const engine = new Engine(document.getElementById('c'), { logo, defaultQr: qr });
+const engine = LANDSCAPE
+  ? new LandscapeEngine(document.getElementById('c'), { logo, defaultQr: qr })
+  : new Engine(document.getElementById('c'), { logo, defaultQr: qr });
 engine.setConfig(DEFAULT_CONFIG);
 
 let t0 = performance.now(), lastTotal = 0;

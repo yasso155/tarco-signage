@@ -492,56 +492,75 @@ export class LandscapeEngine {
     // ── RIGHT PANEL content ──
     const PAD = 20; // padding inside right panel
     const panelInnerX = L_RIGHT_X + PAD;
-    const panelInnerW = L_RIGHT_W - PAD * 2;
+    const panelInnerW = L_RIGHT_W - PAD * 2; // 240px
 
-    // QR box — top of right panel
-    const QR_SIZE = panelInnerW; // fill the width
-    const QR_Y = 32;
+    const QR_SIZE = panelInnerW; // 240px
+    const pillH = 38;
+    const gap1 = 20; // gap below QR
+    const gap2 = 12; // gap below pill
+    const phone = String(f.phone || '920027276').replace(/\s+/g, '');
+    o.font = `700 32px Bukra`;
+    const pfs = fit(o, phone, 700, 32, panelInnerW);
+    const phoneH = Math.round(pfs * 1.4);
+    const gap3 = 12; // gap below phone
+    const dividerH = 1;
+    const gap4 = 14; // gap below divider
+
+    const lines = String(f.hours ?? '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const hfs = lines.length ? Math.min(...lines.map((l) => fit(o, l, 400, 24, panelInnerW))) : 0;
+    const hoursH = lines.length ? lines.length * (hfs * 1.5) : 0;
+
+    const hint = f.qrTitle ?? 'امسح للتواصل';
+    const hintH = hint ? 24 : 0;
+
+    // Calculate total height of the right panel items to center them vertically (matching left logo)
+    const totalH = QR_SIZE + gap1 + pillH + gap2 + phoneH + gap3 + dividerH + (lines.length ? gap4 + hoursH : 0) + (hint ? 12 + hintH : 0);
+    let ry = Math.max(30, Math.round((LH - totalH) / 2));
+
+    // QR box
+    const QR_Y = ry;
     o.fillStyle = '#fff'; rr(o, panelInnerX, QR_Y, QR_SIZE, QR_SIZE, 14); o.fill();
     if (this.qr) {
       const inset = 10;
       o.imageSmoothingQuality = 'high';
       o.drawImage(this.qr, panelInnerX + inset, QR_Y + inset, QR_SIZE - inset * 2, QR_SIZE - inset * 2);
     }
-
-    // Below QR: red label pill + phone + divider + hours
-    let ry = QR_Y + QR_SIZE + 24;
+    ry += QR_SIZE + gap1;
 
     // Red pill label
     const label = f.label || 'خدمة العملاء';
     o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.font = '700 22px Bukra';
     const labelW = Math.min(o.measureText(label).width + 28, panelInnerW);
-    const pillH = 38, pillX = panelInnerX + (panelInnerW - labelW) / 2;
+    const pillX = panelInnerX + (panelInnerW - labelW) / 2;
     o.fillStyle = RED; rr(o, pillX, ry, labelW, pillH, pillH / 2); o.fill();
     o.fillStyle = '#fff'; o.fillText(label, panelInnerX + panelInnerW / 2, ry + pillH / 2);
-    ry += pillH + 14;
+    ry += pillH + gap2;
 
     // Phone number
-    const phone = String(f.phone || '920027276').replace(/\s+/g, '');
     o.direction = 'ltr'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff';
-    const pfs = fit(o, phone, 700, 32, panelInnerW); o.font = `700 ${pfs}px Bukra`;
+    o.font = `700 ${pfs}px Bukra`;
     try { o.letterSpacing = '1px'; } catch (e) { /* optional */ }
     o.fillText(phone, panelInnerX + panelInnerW / 2, ry + pfs * 0.6);
     try { o.letterSpacing = '0px'; } catch (e) { /* optional */ }
-    ry += pfs * 1.4 + 10;
+    ry += phoneH + gap3;
 
     // Divider
-    o.fillStyle = 'rgba(255,255,255,.2)'; o.fillRect(panelInnerX, ry, panelInnerW, 1); ry += 14;
+    o.fillStyle = 'rgba(255,255,255,.2)'; o.fillRect(panelInnerX, ry, panelInnerW, dividerH); ry += dividerH;
 
     // Hours lines
-    const lines = String(f.hours ?? '').split('\n').map((x) => x.trim()).filter(Boolean);
     if (lines.length) {
+      ry += gap4;
       o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#cfd6f2';
-      const hfs = Math.min(...lines.map((l) => fit(o, l, 400, 24, panelInnerW)));
       o.font = `400 ${hfs}px Bukra`;
       for (const l of lines) { o.fillText(l, panelInnerX + panelInnerW / 2, ry + hfs * 0.6); ry += hfs * 1.5; }
     }
 
     // QR scan hint (small, below hours or below divider)
-    const hint = f.qrTitle ?? 'امسح للتواصل';
-    o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = 'rgba(255,255,255,.5)';
-    o.font = `400 18px Bukra`;
-    // only draw if space remains
-    if (ry + 26 < LH - PAD) { o.fillText(hint, panelInnerX + panelInnerW / 2, ry + 12); }
+    if (hint) {
+      ry += 12;
+      o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = 'rgba(255,255,255,.5)';
+      o.font = `400 18px Bukra`;
+      o.fillText(hint, panelInnerX + panelInnerW / 2, ry + 10);
+    }
   }
 }

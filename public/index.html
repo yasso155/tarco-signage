@@ -20,13 +20,16 @@ import { firebaseConfig, configured, FIREBASE_VERSION, DEFAULT_CONFIG } from './
 
 const q = new URLSearchParams(location.search);
 const cleanPath = location.pathname.replace(/^\/|\/$/g, '').toLowerCase();
-const hashPath = location.hash.replace(/^#\/?/, '').toLowerCase();
+// Hash may contain params: /#riyadh?rotate=90  →  hashScreen=riyadh, hashQ has rotate=90
+const rawHash = location.hash.replace(/^#\/?/, '');
+const hashScreen = rawHash.split('?')[0].toLowerCase();
+const hashQ = new URLSearchParams(rawHash.includes('?') ? rawHash.split('?')[1] : '');
 const SCREEN = (
   q.get('screen') ||
-  hashPath ||
+  hashScreen ||
   (cleanPath && cleanPath !== 'index.html' && cleanPath !== 'admin.html' && cleanPath !== 'admin' ? cleanPath : 'default')
 ).toLowerCase();
-const ROTATE = Number(q.get('rotate') || 0);           // 90 / 270 when the TV is physically landscape in the OS
+const ROTATE = Number(q.get('rotate') || hashQ.get('rotate') || 0);  // supports ?rotate=90 in URL or inside hash
 const LANDSCAPE = ROTATE % 180 !== 0;                   // true for rotate=90 or rotate=270 — also set via Firestore branch config
 const DEMO = !configured || q.get('demo') === '1';
 const msg = document.getElementById('msg');
@@ -93,12 +96,10 @@ function apply() {
     // Check if branch landscape setting changed — reload if orientation mismatch
     const branchData = (conf.branches || []).find((b) => b.id === SCREEN);
     const shouldBeLandscape = branchData?.landscape === true;
-    if (shouldBeLandscape !== LANDSCAPE && !q.get('rotate')) {
-      // Orientation changed in admin — reload with correct rotate param
-      const newUrl = new URL(location.href);
-      if (shouldBeLandscape) newUrl.searchParams.set('rotate', '90');
-      else newUrl.searchParams.delete('rotate');
-      location.replace(newUrl.toString());
+    if (shouldBeLandscape !== LANDSCAPE) {
+      // Orientation changed in admin — rebuild hash URL with/without rotate and reload
+      const newHash = shouldBeLandscape ? `#${SCREEN}?rotate=90` : `#${SCREEN}`;
+      location.replace(location.pathname + newHash);
       return;
     }
     const list = posts.filter(visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))

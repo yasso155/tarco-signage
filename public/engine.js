@@ -274,16 +274,15 @@ export class Engine {
 // ─────────────────────────────────────────────────────────────────────────────
 // LandscapeEngine — true 1920×1080 canvas for rotate=90/270 screens
 //
-// Layout (left-to-right):
-//   [LEFT 280px]  navy bg + Tarco logo centered
-//   [CENTER 1360px] blurred bg + content in natural aspect (no forced square)
-//   [RIGHT 280px] navy bg + QR top + label/phone/hours below
+// 2-Column Balanced Layout:
+//   [LEFT ~1420px]  Full-bleed blurred background + Content slider (natural aspect)
+//   [RIGHT 500px]   Branding & Contact panel: Tarco logo, QR code, phone & hours
 // ─────────────────────────────────────────────────────────────────────────────
 export const LW = 1920, LH = 1080;
-const L_LEFT_W = 280, L_RIGHT_W = 280;
-const L_CENTER_X = L_LEFT_W, L_CENTER_W = LW - L_LEFT_W - L_RIGHT_W; // 1360
-const L_RIGHT_X = LW - L_RIGHT_W;
-const NAVY1 = '#141a3a', NAVY2 = '#1d2550';
+const L_PANEL_W = 500;
+const L_CONTENT_W = LW - L_PANEL_W; // 1420
+const L_PANEL_X = L_CONTENT_W;      // 1420
+const NAVY1 = '#0f1433', NAVY2 = '#192252';
 
 export class LandscapeEngine {
   constructor(canvas, { logo, defaultQr }) {
@@ -334,11 +333,10 @@ export class LandscapeEngine {
     return v;
   }
 
-  // Compute content dimensions that fit inside the center panel while preserving natural aspect ratio.
-  // Square stays square, portrait stays portrait — no forced crop.
+  // Compute content dimensions that fit inside the left content area while preserving natural aspect ratio
   _contentSize(srcW, srcH) {
     const PAD = 40;
-    const maxW = L_CENTER_W - PAD * 2;  // 1280
+    const maxW = L_CONTENT_W - PAD * 2;  // 1340
     const maxH = LH - PAD * 2;          // 1000
     const scale = Math.min(maxW / srcW, maxH / srcH);
     return { cw: Math.round(srcW * scale), ch: Math.round(srcH * scale) };
@@ -354,16 +352,16 @@ export class LandscapeEngine {
     } else img = p.img || await loadImg(p.src);
     img = img.naturalWidth ? img : Object.assign(img, { naturalWidth: img.width, naturalHeight: img.height });
 
-    // blurred full-landscape background from content (covers all 1920×1080)
+    // blurred full-landscape background from content
     const small = mk(96, 54), sm = small.getContext('2d');
     sm.imageSmoothingQuality = 'high';
     try { sm.filter = 'blur(2px)'; } catch (e) { /* optional */ }
     sm.drawImage(img, 0, 0, 96, 54);
     const bg = mk(LW, LH), b = bg.getContext('2d');
     b.imageSmoothingQuality = 'high';
-    try { b.filter = 'blur(18px)'; } catch (e) { /* older browsers: upscale already soft */ }
+    try { b.filter = 'blur(18px)'; } catch (e) { /* upscale soft */ }
     b.drawImage(small, -40, -40, LW + 80, LH + 80); b.filter = 'none';
-    b.fillStyle = 'rgba(35,44,87,.55)'; b.fillRect(0, 0, LW, LH);
+    b.fillStyle = 'rgba(20,26,58,.5)'; b.fillRect(0, 0, LW, LH);
 
     if (video) {
       const vw = video.videoWidth || img.naturalWidth, vh = video.videoHeight || img.naturalHeight;
@@ -376,7 +374,6 @@ export class LandscapeEngine {
       return it;
     }
 
-    // image: pre-render at content dimensions (preserve natural aspect)
     const iw = img.naturalWidth, ih = img.naturalHeight;
     const { cw, ch } = this._contentSize(iw, ih);
     const card = mk(cw, ch), cx = card.getContext('2d');
@@ -411,40 +408,39 @@ export class LandscapeEngine {
     const { i, j, local, d, p } = this.locate(t), e = ease(p);
     this._sync(i, j, local, d);
 
-    // blurred background fills whole canvas
+    // full blurred background
     ctx.globalAlpha = 1; ctx.drawImage(this.items[i].bg, 0, 0);
     if (p > 0) { ctx.globalAlpha = e; ctx.drawImage(this.items[j].bg, 0, 0); ctx.globalAlpha = 1; }
 
-    // content in center column — slide horizontally during transition
-    const slideAmt = Math.round((L_CENTER_W + 80) * e);
+    // content sliding horizontally in left content area
+    const slideAmt = Math.round((L_CONTENT_W + 80) * e);
     this._drawContent(this.items[i], -slideAmt, e < 0.5 ? 1 : Math.max(0, 1 - (e - 0.5) * 4));
-    if (p > 0) this._drawContent(this.items[j], L_CENTER_W + 80 - slideAmt, Math.min(1, e * 4));
+    if (p > 0) this._drawContent(this.items[j], L_CONTENT_W + 80 - slideAmt, Math.min(1, e * 4));
 
     ctx.drawImage(this.overlay, 0, 0);
   }
 
-  // Draw content item at horizontal offset dx inside center column, with optional alpha
   _drawContent(it, dx, alpha) {
     const ctx = this.ctx;
     const cw = it.cw, ch = it.ch;
-    // center content within the center column
-    const destX = L_CENTER_X + (L_CENTER_W - cw) / 2 + dx;
+    // center content within left area [0, L_CONTENT_W]
+    const destX = (L_CONTENT_W - cw) / 2 + dx;
     const destY = (LH - ch) / 2;
-    if (destX + cw < L_CENTER_X || destX > L_RIGHT_X) return; // fully off-screen
+    if (destX + cw < 0 || destX > L_PANEL_X) return;
 
     ctx.save();
-    // clip drawing to center column only (don't bleed over panels)
-    ctx.beginPath(); ctx.rect(L_CENTER_X, 0, L_CENTER_W, LH); ctx.clip();
+    // clip to content area only
+    ctx.beginPath(); ctx.rect(0, 0, L_CONTENT_W, LH); ctx.clip();
     ctx.globalAlpha = alpha;
 
-    // soft drop-shadow for the content card
-    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
+    // soft drop-shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 48; ctx.shadowOffsetY = 16;
     ctx.fillStyle = '#000';
-    rr(ctx, destX, destY, cw, ch, 20); ctx.fill();
+    rr(ctx, destX, destY, cw, ch, 24); ctx.fill();
     ctx.shadowColor = 'transparent';
 
     // draw content
-    rr(ctx, destX, destY, cw, ch, 20); ctx.clip();
+    rr(ctx, destX, destY, cw, ch, 24); ctx.clip();
     if (it.video) {
       const v = it.video, ok = v.readyState >= 2 && v.videoWidth > 0;
       ctx.drawImage(ok ? v : it.poster, destX, destY, cw, ch);
@@ -466,101 +462,119 @@ export class LandscapeEngine {
     const o = this.overlay.getContext('2d'); o.clearRect(0, 0, LW, LH);
     const f = this.cfg.footer || {};
 
-    // ── LEFT PANEL: navy background ──
-    const lg = o.createLinearGradient(0, 0, L_LEFT_W, 0);
-    lg.addColorStop(0, NAVY1); lg.addColorStop(1, NAVY2);
-    o.fillStyle = lg; o.fillRect(0, 0, L_LEFT_W, LH);
-    // Red accent line on right edge of left panel
-    o.fillStyle = RED; o.fillRect(L_LEFT_W - 4, 0, 4, LH);
+    // ── RIGHT PANEL: dark navy gradient ──
+    const rg = o.createLinearGradient(L_PANEL_X, 0, LW, 0);
+    rg.addColorStop(0, NAVY2); rg.addColorStop(1, NAVY1);
+    o.fillStyle = rg; o.fillRect(L_PANEL_X, 0, L_PANEL_W, LH);
 
-    // Tarco logo centered in left panel
+    // Red accent vertical line on left edge of right panel
+    o.fillStyle = RED; o.fillRect(L_PANEL_X, 0, 4, LH);
+
+    const centerX = L_PANEL_X + L_PANEL_W / 2;
+    const innerW = L_PANEL_W - 60; // 440px
+
+    // 1. Logo dimensions
+    let logoW = 0, logoH = 0;
     if (this.logo) {
-      const maxLogoW = 220, maxLogoH = 160;
+      const maxLogoW = 340, maxLogoH = 110;
       const lw = this.logo.naturalWidth, lh = this.logo.naturalHeight;
       const scale = Math.min(maxLogoW / lw, maxLogoH / lh);
-      const dw = Math.round(lw * scale), dh = Math.round(lh * scale);
-      o.drawImage(this.logo, Math.round((L_LEFT_W - dw) / 2), Math.round((LH - dh) / 2), dw, dh);
+      logoW = Math.round(lw * scale);
+      logoH = Math.round(lh * scale);
     }
 
-    // ── RIGHT PANEL: navy background ──
-    const rg = o.createLinearGradient(L_RIGHT_X, 0, LW, 0);
-    rg.addColorStop(0, NAVY2); rg.addColorStop(1, NAVY1);
-    o.fillStyle = rg; o.fillRect(L_RIGHT_X, 0, L_RIGHT_W, LH);
-    // Red accent line on left edge of right panel
-    o.fillStyle = RED; o.fillRect(L_RIGHT_X, 0, 4, LH);
+    // 2. QR code box
+    const QR_SIZE = 260;
 
-    // ── RIGHT PANEL content ──
-    const PAD = 20; // padding inside right panel
-    const panelInnerX = L_RIGHT_X + PAD;
-    const panelInnerW = L_RIGHT_W - PAD * 2; // 240px
-
-    const QR_SIZE = panelInnerW; // 240px
-    const pillH = 38;
-    const gap1 = 20; // gap below QR
-    const gap2 = 12; // gap below pill
+    // 3. Pill & Phone
+    const pillH = 40;
     const phone = String(f.phone || '920027276').replace(/\s+/g, '');
-    o.font = `700 32px Bukra`;
-    const pfs = fit(o, phone, 700, 32, panelInnerW);
-    const phoneH = Math.round(pfs * 1.4);
-    const gap3 = 12; // gap below phone
-    const dividerH = 1;
-    const gap4 = 14; // gap below divider
+    o.font = `700 36px Bukra`;
+    const pfs = fit(o, phone, 700, 36, innerW);
+    const phoneH = Math.round(pfs * 1.35);
 
+    // 4. Hours
     const lines = String(f.hours ?? '').split('\n').map((x) => x.trim()).filter(Boolean);
-    const hfs = lines.length ? Math.min(...lines.map((l) => fit(o, l, 400, 24, panelInnerW))) : 0;
+    const hfs = lines.length ? Math.min(...lines.map((l) => fit(o, l, 400, 22, innerW))) : 0;
     const hoursH = lines.length ? lines.length * (hfs * 1.5) : 0;
 
-    const hint = f.qrTitle ?? 'امسح للتواصل';
-    const hintH = hint ? 24 : 0;
+    // 5. Hint
+    const hint = f.qrTitle ?? 'امسح للتواصل عبر واتساب';
+    const hintH = hint ? 26 : 0;
 
-    // Calculate total height of the right panel items to center them vertically (matching left logo)
-    const totalH = QR_SIZE + gap1 + pillH + gap2 + phoneH + gap3 + dividerH + (lines.length ? gap4 + hoursH : 0) + (hint ? 12 + hintH : 0);
-    let ry = Math.max(30, Math.round((LH - totalH) / 2));
+    // Vertical spacing
+    const gapLogo = logoH ? 24 : 0;
+    const gapDivider = logoH ? 22 : 0;
+    const gapQr = 22;
+    const gapPill = 14;
+    const gapPhone = 16;
+    const gapHours = lines.length ? 16 : 0;
+    const gapHint = hint ? 14 : 0;
 
-    // QR box
-    const QR_Y = ry;
-    o.fillStyle = '#fff'; rr(o, panelInnerX, QR_Y, QR_SIZE, QR_SIZE, 14); o.fill();
-    if (this.qr) {
-      const inset = 10;
-      o.imageSmoothingQuality = 'high';
-      o.drawImage(this.qr, panelInnerX + inset, QR_Y + inset, QR_SIZE - inset * 2, QR_SIZE - inset * 2);
+    const totalH = logoH + gapLogo + (logoH ? 1 + gapDivider : 0) + QR_SIZE + gapQr + pillH + gapPill + phoneH + (lines.length ? gapPhone + 1 + gapHours + hoursH : 0) + (hint ? gapHint + hintH : 0);
+
+    // Vertically center everything in LH (1080)
+    let ry = Math.max(20, Math.round((LH - totalH) / 2));
+
+    // Draw Logo
+    if (this.logo && logoW) {
+      o.drawImage(this.logo, Math.round(centerX - logoW / 2), ry, logoW, logoH);
+      ry += logoH + gapLogo;
+
+      // Divider below logo
+      o.fillStyle = 'rgba(255,255,255,.18)';
+      o.fillRect(centerX - 130, ry, 260, 1);
+      ry += 1 + gapDivider;
     }
-    ry += QR_SIZE + gap1;
 
-    // Red pill label
+    // Draw QR box (rounded white card)
+    const qrX = Math.round(centerX - QR_SIZE / 2);
+    o.fillStyle = '#fff';
+    rr(o, qrX, ry, QR_SIZE, QR_SIZE, 18); o.fill();
+    if (this.qr) {
+      const inset = 12;
+      o.imageSmoothingQuality = 'high';
+      o.drawImage(this.qr, qrX + inset, ry + inset, QR_SIZE - inset * 2, QR_SIZE - inset * 2);
+    }
+    ry += QR_SIZE + gapQr;
+
+    // Draw Red Pill
     const label = f.label || 'خدمة العملاء';
     o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.font = '700 22px Bukra';
-    const labelW = Math.min(o.measureText(label).width + 28, panelInnerW);
-    const pillX = panelInnerX + (panelInnerW - labelW) / 2;
+    const labelW = Math.min(o.measureText(label).width + 36, innerW);
+    const pillX = centerX - labelW / 2;
     o.fillStyle = RED; rr(o, pillX, ry, labelW, pillH, pillH / 2); o.fill();
-    o.fillStyle = '#fff'; o.fillText(label, panelInnerX + panelInnerW / 2, ry + pillH / 2);
-    ry += pillH + gap2;
+    o.fillStyle = '#fff'; o.fillText(label, centerX, ry + pillH / 2);
+    ry += pillH + gapPill;
 
-    // Phone number
+    // Draw Phone
     o.direction = 'ltr'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff';
     o.font = `700 ${pfs}px Bukra`;
-    try { o.letterSpacing = '1px'; } catch (e) { /* optional */ }
-    o.fillText(phone, panelInnerX + panelInnerW / 2, ry + pfs * 0.6);
-    try { o.letterSpacing = '0px'; } catch (e) { /* optional */ }
-    ry += phoneH + gap3;
+    try { o.letterSpacing = '1px'; } catch (e) {}
+    o.fillText(phone, centerX, ry + pfs * 0.55);
+    try { o.letterSpacing = '0px'; } catch (e) {}
+    ry += phoneH;
 
-    // Divider
-    o.fillStyle = 'rgba(255,255,255,.2)'; o.fillRect(panelInnerX, ry, panelInnerW, dividerH); ry += dividerH;
-
-    // Hours lines
+    // Draw Hours
     if (lines.length) {
-      ry += gap4;
+      ry += gapPhone;
+      o.fillStyle = 'rgba(255,255,255,.2)';
+      o.fillRect(centerX - 110, ry, 220, 1);
+      ry += 1 + gapHours;
       o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#cfd6f2';
       o.font = `400 ${hfs}px Bukra`;
-      for (const l of lines) { o.fillText(l, panelInnerX + panelInnerW / 2, ry + hfs * 0.6); ry += hfs * 1.5; }
+      for (const l of lines) {
+        o.fillText(l, centerX, ry + hfs * 0.55);
+        ry += hfs * 1.5;
+      }
     }
 
-    // QR scan hint (small, below hours or below divider)
+    // Draw QR hint
     if (hint) {
-      ry += 12;
-      o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = 'rgba(255,255,255,.5)';
+      ry += gapHint;
+      o.direction = 'rtl'; o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = 'rgba(255,255,255,.55)';
       o.font = `400 18px Bukra`;
-      o.fillText(hint, panelInnerX + panelInnerW / 2, ry + 10);
+      o.fillText(hint, centerX, ry + 10);
     }
   }
 }

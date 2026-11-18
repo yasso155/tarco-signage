@@ -14,6 +14,11 @@
 <body>
 <div id="stage"><canvas id="c"></canvas></div>
 <div id="msg"></div>
+<audio id="bgAudio" loop playsinline preload="auto"></audio>
+<button id="unmutePill" style="position:fixed;bottom:24px;left:24px;background:rgba(22,28,66,.92);color:#fff;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px);border-radius:99px;padding:10px 20px;font:700 14px Bukra,system-ui,sans-serif;cursor:pointer;display:none;align-items:center;gap:8px;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.6);transition:.2s">
+  <span>🔊</span>
+  <span>اضغط لتشغيل الموسيقى</span>
+</button>
 <script type="module">
 import { Engine, LandscapeEngine, loadFonts, loadImg } from './engine.js';
 import { firebaseConfig, configured, FIREBASE_VERSION, DEFAULT_CONFIG } from './firebase-config.js';
@@ -147,10 +152,61 @@ function apply() {
     await engine.setPosts(list);
     if (orientationSwitched || wasEmpty) t0 = performance.now();
     window.__count = list.length;
+
+    // 6. Update background audio
+    updateAudio();
   }).catch((e) => console.error(e));
   return applying;
 }
 setInterval(apply, 60 * 1000);   // re-evaluate date ranges
+
+// ---- background audio logic ----
+const bgAudio = document.getElementById('bgAudio');
+const unmutePill = document.getElementById('unmutePill');
+let userHasInteracted = false;
+
+function updateAudio() {
+  const a = conf.audio || {};
+  const enabled = a.enabled && a.url;
+  const vol = Math.max(0, Math.min(1, Number(a.volume ?? 0.4)));
+
+  if (!enabled) {
+    if (!bgAudio.paused) bgAudio.pause();
+    if (unmutePill) unmutePill.style.display = 'none';
+    return;
+  }
+
+  bgAudio.volume = vol;
+  if (bgAudio.src !== a.url) {
+    bgAudio.src = a.url;
+    bgAudio.load();
+  }
+
+  const p = bgAudio.play();
+  if (p !== undefined) {
+    p.then(() => {
+      if (unmutePill) unmutePill.style.display = 'none';
+    }).catch(() => {
+      // Browser autoplay policy blocked audio until user tap
+      if (unmutePill && !userHasInteracted) {
+        unmutePill.style.display = 'flex';
+      }
+    });
+  }
+}
+
+function handleUserInteraction() {
+  userHasInteracted = true;
+  if (unmutePill) unmutePill.style.display = 'none';
+  const a = conf.audio || {};
+  if (a.enabled && a.url && bgAudio.paused) {
+    bgAudio.play().catch(() => {});
+  }
+}
+window.addEventListener('click', handleUserInteraction);
+window.addEventListener('keydown', handleUserInteraction);
+window.addEventListener('touchstart', handleUserInteraction);
+if (unmutePill) unmutePill.addEventListener('click', handleUserInteraction);
 
 // ---- data source ----
 if (DEMO) {

@@ -18,5 +18,6 @@ export const DEFAULT_BRANCHES = [
 ];
 export const DEFAULT_CONFIG = {
   hold: 8, transition: 0.9, zoom: 0.04,
-  footer: { label: 'خدمة العملاء', phone: '920027276', qrTitle: 'امسح الكود للتواصل', qrSub: 'عبر واتساب مباشرة', hours: 'من السبت إلى الخميس\n9:00 ص - 10:00 م' }
+  footer: { label: 'خدمة العملاء', phone: '920027276', qrTitle: 'امسح الكود للتواصل', qrSub: 'عبر واتساب مباشرة', hours: 'من السبت إلى الخميس\n9:00 ص - 10:00 م' },
+  audio: { enabled: false, url: '', volume: 0.4 }
 };

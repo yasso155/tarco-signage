@@ -161,6 +161,36 @@ th{color:var(--muted);font-weight:400;font-size:13px}
             </div>
           </div>
         </div>
+
+        <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <h2 style="margin:0">موسيقى الخلفية (Background Music)</h2>
+            <label class="sw"><input type="checkbox" id="c-audio-en">تشغيل الموسيقى</label>
+          </div>
+          <p class="muted" style="margin:0">تعمل الموسيقى في الخلفية بشكل متكرر (Loop) على شاشات العرض.</p>
+          
+          <div class="cols" style="align-items:end">
+            <label class="f">مستوى الصوت (<span id="c-vol-val">40%</span>)
+              <input type="range" id="c-audio-vol" min="0" max="100" value="40" step="5">
+            </label>
+            <label class="f">رابط ملف صوت مباشر (اختياري)
+              <input type="text" id="c-audio-url" dir="ltr" placeholder="https://.../music.mp3">
+            </label>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#0b0f2a;padding:14px;border-radius:10px;border:1px solid var(--line)">
+            <label class="btn sm primary" style="cursor:pointer">
+              🎵 رفع ملف صوتي (MP3 / M4A / WAV)
+              <input id="audioFile" type="file" accept="audio/*" hidden>
+            </label>
+            <div id="audioPlayerBox" style="display:flex;align-items:center;gap:10px;flex:1;min-width:240px" hidden>
+              <audio id="audioPreview" controls style="height:36px;flex:1"></audio>
+              <button class="btn sm danger ghost" id="audioDel" type="button" title="حذف الموسيقى">حذف</button>
+            </div>
+            <span class="muted" id="audioStatus" style="font-size:13px">لم يتم تحديد ملف موسيقى</span>
+          </div>
+        </div>
+
         <button class="btn primary" id="saveCfg" type="button">حفظ الإعدادات</button>
       </div>
 
@@ -399,6 +429,54 @@ async function boot() {
     $('#saveCfg').onclick = saveSettings;
     $('#qrFile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { pendingQr = await prepare(f, 900, 0.92); $('#qrPrev').src = pendingQr; toast('اضغط «حفظ الإعدادات» لتطبيق الـQR'); } catch (er) { toast(er.message); } e.target.value = ''; };
     $('#qrReset').onclick = () => { pendingQr = null; $('#qrPrev').src = 'assets/qr-default.png'; toast('اضغط «حفظ الإعدادات» للرجوع للـQR الافتراضي'); };
+
+    // Background Audio controls
+    $('#c-audio-vol').oninput = (e) => {
+      $('#c-vol-val').textContent = e.target.value + '%';
+      $('#audioPreview').volume = Number(e.target.value) / 100;
+    };
+    $('#c-audio-en').onchange = (e) => {
+      if (e.target.checked && !$('#c-audio-url').value.trim()) {
+        toast('يرجى رفع ملف صوتي أو وضع رابط أولاً');
+        e.target.checked = false;
+      }
+    };
+    $('#audioFile').onchange = async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (f.size > 50 * 1024 * 1024) { toast('الملف الصوتي أكبر من 50MB'); return; }
+      toast('جارٍ رفع الملف الصوتي…');
+      try {
+        const safe = f.name.replace(/[^\w.\-]+/g, '_').slice(-60);
+        const path = `audio/${Date.now()}-${safe}`;
+        const r = S.ref(storage, path);
+        const task = S.uploadBytesResumable(r, f, { contentType: f.type || 'audio/mpeg' });
+        await new Promise((res, rej) => task.on('state_changed', (s) => toast(`رفع الصوت: ${Math.round(100 * s.bytesTransferred / s.totalBytes)}%`), rej, res));
+        const url = await S.getDownloadURL(r);
+        pendingAudioUrl = url;
+        pendingAudioStoragePath = path;
+        $('#c-audio-url').value = url;
+        $('#c-audio-en').checked = true;
+        $('#audioPlayerBox').hidden = false;
+        $('#audioPreview').src = url;
+        $('#audioPreview').volume = Number($('#c-audio-vol').value) / 100;
+        $('#audioStatus').textContent = `تم رفع: ${f.name} (اضغط حفظ الإعدادات)`;
+        toast('تم رفع الملف الصوتي بنجاح ✓ — اضغط حفظ الإعدادات');
+      } catch (err) {
+        toast('تعذّر رفع الملف الصوتي: ' + (err.code || err.message));
+      }
+      e.target.value = '';
+    };
+    $('#audioDel').onclick = () => {
+      pendingAudioUrl = '';
+      pendingAudioStoragePath = '';
+      $('#c-audio-url').value = '';
+      $('#c-audio-en').checked = false;
+      $('#audioPlayerBox').hidden = true;
+      $('#audioPreview').src = '';
+      $('#audioStatus').textContent = 'تمت إزالة الموسيقى (اضغط حفظ الإعدادات)';
+      toast('تمت إزالة الموسيقى — اضغط حفظ الإعدادات');
+    };
     $('#brAdd').onclick = () => { branchDraft.push({ id: '', name: '', landscape: false }); renderBranches(true); };
     $('#brSave').onclick = saveBranches;
     $('#brList').addEventListener('click', (e) => {
@@ -537,17 +615,43 @@ async function boot() {
 
   // ---- settings ----
   let pendingQr;   // undefined = unchanged, null = reset to default, string = new image
+  let pendingAudioUrl = undefined, pendingAudioStoragePath = undefined;
   function fillSettings() {
     const c = { ...DEFAULT_CONFIG, ...conf, footer: { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) } };
     if (document.activeElement && $('#t-settings').contains(document.activeElement)) return;   // do not overwrite while typing
     $('#c-hold').value = c.hold; $('#c-tr').value = c.transition; $('#c-zoom').value = c.zoom;
     $('#c-label').value = c.footer.label; $('#c-phone').value = c.footer.phone; $('#c-qrt').value = c.footer.qrTitle; $('#c-qrs').value = c.footer.qrSub; $('#c-hours').value = c.footer.hours;
     pendingQr = undefined; $('#qrPrev').src = conf.qrImage || 'assets/qr-default.png';
+
+    // Audio settings
+    const a = conf.audio || {};
+    $('#c-audio-en').checked = !!a.enabled;
+    const vol = Math.round((a.volume ?? 0.4) * 100);
+    $('#c-audio-vol').value = vol;
+    $('#c-vol-val').textContent = vol + '%';
+    $('#c-audio-url').value = a.url || '';
+    if (a.url) {
+      $('#audioPlayerBox').hidden = false;
+      $('#audioPreview').src = a.url;
+      $('#audioPreview').volume = vol / 100;
+      $('#audioStatus').textContent = a.enabled ? 'الموسيقى مفعلة' : 'الموسيقى متوقفة مؤقتاً';
+    } else {
+      $('#audioPlayerBox').hidden = true;
+      $('#audioPreview').src = '';
+      $('#audioStatus').textContent = 'لم يتم تحديد ملف موسيقى';
+    }
   }
   async function saveSettings() {
+    const audioUrl = $('#c-audio-url').value.trim();
     const next = {
       hold: Number($('#c-hold').value) || 8, transition: Number($('#c-tr').value) || 0.9, zoom: Math.min(0.1, Math.max(0, Number($('#c-zoom').value) || 0)),
       footer: { label: $('#c-label').value.trim(), phone: $('#c-phone').value.replace(/\s+/g, ''), qrTitle: $('#c-qrt').value.trim(), qrSub: $('#c-qrs').value.trim(), hours: $('#c-hours').value.trim() },
+      audio: {
+        enabled: $('#c-audio-en').checked && !!audioUrl,
+        url: audioUrl,
+        storagePath: pendingAudioStoragePath !== undefined ? pendingAudioStoragePath : (conf.audio?.storagePath || ''),
+        volume: Number($('#c-audio-vol').value) / 100
+      },
       qrImage: pendingQr === undefined ? (conf.qrImage || null) : pendingQr,
       branches: conf.branches?.length ? conf.branches : branches, updatedAt: F.serverTimestamp()
     };

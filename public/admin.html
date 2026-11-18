@@ -431,6 +431,21 @@ async function boot() {
     $('#qrReset').onclick = () => { pendingQr = null; $('#qrPrev').src = 'assets/qr-default.png'; toast('اضغط «حفظ الإعدادات» للرجوع للـQR الافتراضي'); };
 
     // Background Audio controls
+    $('#c-audio-url').onchange = (e) => {
+      let val = e.target.value.trim();
+      const m = val.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (m) {
+        val = `https://docs.google.com/uc?export=download&id=${m[1]}`;
+        e.target.value = val;
+        toast('تم تحويل رابط Google Drive لرابط تشغيل مباشر ✓');
+      }
+      if (val) {
+        $('#c-audio-en').checked = true;
+        $('#audioPlayerBox').hidden = false;
+        $('#audioPreview').src = val;
+        $('#audioStatus').textContent = 'جاهز للتطبيق (اضغط حفظ الإعدادات)';
+      }
+    };
     $('#c-audio-vol').oninput = (e) => {
       $('#c-vol-val').textContent = e.target.value + '%';
       $('#audioPreview').volume = Number(e.target.value) / 100;

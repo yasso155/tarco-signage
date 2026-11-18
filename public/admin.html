@@ -447,23 +447,39 @@ async function boot() {
       if (f.size > 50 * 1024 * 1024) { toast('الملف الصوتي أكبر من 50MB'); return; }
       toast('جارٍ رفع الملف الصوتي…');
       try {
-        const safe = f.name.replace(/[^\w.\-]+/g, '_').slice(-60);
-        const path = `audio/${Date.now()}-${safe}`;
-        const r = S.ref(storage, path);
-        const task = S.uploadBytesResumable(r, f, { contentType: f.type || 'audio/mpeg' });
-        await new Promise((res, rej) => task.on('state_changed', (s) => toast(`رفع الصوت: ${Math.round(100 * s.bytesTransferred / s.totalBytes)}%`), rej, res));
-        const url = await S.getDownloadURL(r);
+        let url = '';
+        try {
+          const safe = f.name.replace(/[^\w.\-]+/g, '_').slice(-60);
+          const path = `audio/${Date.now()}-${safe}`;
+          const r = S.ref(storage, path);
+          const task = S.uploadBytesResumable(r, f, { contentType: f.type || 'audio/mpeg' });
+          await new Promise((res, rej) => task.on('state_changed', (s) => toast(`رفع الصوت: ${Math.round(100 * s.bytesTransferred / s.totalBytes)}%`), rej, res));
+          url = await S.getDownloadURL(r);
+          pendingAudioStoragePath = path;
+        } catch (storageErr) {
+          console.warn('Firebase storage upload failed, checking local dataURL fallback:', storageErr);
+          if (f.size < 750 * 1024) {
+            url = await new Promise((res, rej) => {
+              const reader = new FileReader();
+              reader.onload = () => res(reader.result);
+              reader.onerror = rej;
+              reader.readAsDataURL(f);
+            });
+            pendingAudioStoragePath = '';
+          } else {
+            throw new Error('تعذّر الرفع لـ Storage — يمكنك تفعيل Storage في Firebase Console أو استخدام رابط MP3 مباشر: ' + (storageErr.code || storageErr.message));
+          }
+        }
         pendingAudioUrl = url;
-        pendingAudioStoragePath = path;
         $('#c-audio-url').value = url;
         $('#c-audio-en').checked = true;
         $('#audioPlayerBox').hidden = false;
         $('#audioPreview').src = url;
         $('#audioPreview').volume = Number($('#c-audio-vol').value) / 100;
-        $('#audioStatus').textContent = `تم رفع: ${f.name} (اضغط حفظ الإعدادات)`;
-        toast('تم رفع الملف الصوتي بنجاح ✓ — اضغط حفظ الإعدادات');
+        $('#audioStatus').textContent = `تم تحميل: ${f.name} (اضغط حفظ الإعدادات)`;
+        toast('تم تجهيز الملف الصوتي ✓ — اضغط حفظ الإعدادات للتطبيق');
       } catch (err) {
-        toast('تعذّر رفع الملف الصوتي: ' + (err.code || err.message));
+        toast(err.message || 'تعذّر رفع الملف الصوتي');
       }
       e.target.value = '';
     };

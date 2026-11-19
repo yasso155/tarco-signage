@@ -19,3 +19,4 @@ Thumbs.db
 # Agent Skills (local tooling, not needed in repo)
 .agents/
 skills-lock.json
+

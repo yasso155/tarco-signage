@@ -347,11 +347,11 @@ async function boot() {
         ['posts', 'settings', 'screens'].forEach((k) => $('#t-' + k).hidden = k !== b.dataset.tab);
       });
       bindUi();
+      setInterval(renderScreens, 30000);   // once per page, not once per login
     }
     unsubs.push(F.onSnapshot(F.collection(db, 'posts'), (s) => { posts = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); renderPosts(); refreshPreview(); renderScreens(); }, (e) => toast('خطأ قراءة: ' + e.code)));
     unsubs.push(F.onSnapshot(F.doc(db, 'config', 'main'), (s) => { conf = s.data() || {}; branches = conf.branches?.length ? conf.branches : DEFAULT_BRANCHES; fillSettings(); renderBranches(); fillBranchSelect(); renderPosts(); refreshPreview(); renderScreens(); }));
     unsubs.push(F.onSnapshot(F.collection(db, 'screens'), (s) => { screens = {}; s.docs.forEach((d) => screens[d.id] = d.data()); renderScreens(); }));
-    setInterval(renderScreens, 30000);
   }
 
   // ---- helpers ----
@@ -359,26 +359,32 @@ async function boot() {
   const visibleFor = (p, screen) => p.active !== false && !(p.from && today() < p.from) && !(p.to && today() > p.to) && (!(p.branches || []).length || p.branches.includes(screen));
   const brName = (id) => branches.find((b) => b.id === id)?.name || id;
 
-  async function prepare(file, max = 1200, q0 = 0.86) {
+  // target = size we aim for, hard = size we refuse above (base64 chars)
+  async function prepare(file, max = 1200, q0 = 0.86, target = 680000, hard = 980000) {
     const bmp = await createImageBitmap(file);
     const sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
     const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
     const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, c.width, c.height);
     let url = '', q = q0;
-    for (; q > 0.4; q -= 0.08) { url = c.toDataURL('image/jpeg', q); if (url.length < 680000) break; }
-    if (url.length >= 980000) throw new Error('الصورة كبيرة جداً');
+    for (; q > 0.4; q -= 0.08) { url = c.toDataURL('image/jpeg', q); if (url.length < target) break; }
+    if (url.length >= hard) throw new Error('الصورة كبيرة جداً');
     return url;
   }
+  // QR images all live inside the single config document (1MB Firestore limit), so keep each one small
+  const prepareQr = (file) => prepare(file, 600, 0.9, 120000, 200000);
+  const saveErr = (e) => (e && e.code === 'invalid-argument')
+    ? 'تعذّر الحفظ: الإعدادات أكبر من الحد المسموح (غالباً صور QR كبيرة) — ارفع صور QR أصغر'
+    : 'تعذّر الحفظ: ' + ((e && (e.code || e.message)) || '');
 
   // ---- posts ----
   function renderPosts() {
     const el = $('#list');
     if (!posts.length) { el.innerHTML = '<div class="empty">ما في بوستات بعد. ارفع أول صورة من الأعلى.</div>'; return; }
     el.innerHTML = posts.map((p, i) => `
-      <article class="post ${p.active === false ? 'off' : ''}" data-id="${p.id}">
-        <img class="th" src="${p.img}" alt="">
+      <article class="post ${p.active === false ? 'off' : ''}" data-id="${esc(p.id)}">
+        <img class="th" src="${esc(p.img)}" alt="">
         <div class="meta">
-          <div class="name" title="${esc(p.name)}">${i + 1}. ${esc(p.name || 'بوست')}${p.video ? ` <span class="vbadge">🎬 فيديو${p.vdur ? ' · ' + Math.round(p.vdur) + 'ث' : ''}</span>` : ''}</div>
+          <div class="name" title="${esc(p.name)}">${i + 1}. ${esc(p.name || 'بوست')}${p.video ? ` <span class="vbadge">🎬 فيديو${p.vdur ? ' · ' + Math.round(p.vdur) + 'ث' : ''}</span>` : ''}${(p.branches || []).length && !p.branches.some((id) => branches.some((b) => b.id === id)) ? ' <span class="vbadge" title="مخصص لفروع لم تعد موجودة">⚠️ لا يظهر في أي شاشة</span>' : ''}</div>
           <div class="grid3">
             <label class="f">المدة (ثانية)<input type="number" min="3" max="120" data-k="seconds" value="${p.seconds || ''}" placeholder="${p.video ? (p.vdur ? Math.round(p.vdur) + ' (كامل الفيديو)' : 'كامل الفيديو') : (conf.hold || DEFAULT_CONFIG.hold)}"></label>
             <label class="f">يبدأ من<input type="date" data-k="from" value="${p.from || ''}"></label>
@@ -427,7 +433,7 @@ async function boot() {
     drop.addEventListener('drop', (e) => addFiles([...e.dataTransfer.files]));
     files.addEventListener('change', () => { addFiles([...files.files]); files.value = ''; });
     $('#saveCfg').onclick = saveSettings;
-    $('#qrFile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { pendingQr = await prepare(f, 900, 0.92); $('#qrPrev').src = pendingQr; toast('اضغط «حفظ الإعدادات» لتطبيق الـQR'); } catch (er) { toast(er.message); } e.target.value = ''; };
+    $('#qrFile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { pendingQr = await prepareQr(f); $('#qrPrev').src = pendingQr; toast('اضغط «حفظ الإعدادات» لتطبيق الـQR'); } catch (er) { toast(er.message); } e.target.value = ''; };
     $('#qrReset').onclick = () => { pendingQr = null; $('#qrPrev').src = 'assets/qr-default.png'; toast('اضغط «حفظ الإعدادات» للرجوع للـQR الافتراضي'); };
 
     // Background Audio controls
@@ -439,6 +445,8 @@ async function boot() {
         e.target.value = val;
         toast('تم تحويل رابط Google Drive لرابط تشغيل مباشر ✓');
       }
+      // a typed link is not a file we uploaded: forget any unsaved upload (and delete it)
+      discardPendingAudio(); pendingAudioStoragePath = '';
       if (val) {
         $('#c-audio-en').checked = true;
         $('#audioPlayerBox').hidden = false;
@@ -463,6 +471,7 @@ async function boot() {
       toast('جارٍ رفع الملف الصوتي…');
       try {
         let url = '';
+        // no base64 fallback: an embedded audio file would push the config document past Firestore's 1MB limit
         try {
           const safe = f.name.replace(/[^\w.\-]+/g, '_').slice(-60);
           const path = `audio/${Date.now()}-${safe}`;
@@ -470,20 +479,10 @@ async function boot() {
           const task = S.uploadBytesResumable(r, f, { contentType: f.type || 'audio/mpeg' });
           await new Promise((res, rej) => task.on('state_changed', (s) => toast(`رفع الصوت: ${Math.round(100 * s.bytesTransferred / s.totalBytes)}%`), rej, res));
           url = await S.getDownloadURL(r);
+          discardPendingAudio();   // replacing an earlier unsaved upload
           pendingAudioStoragePath = path;
         } catch (storageErr) {
-          console.warn('Firebase storage upload failed, checking local dataURL fallback:', storageErr);
-          if (f.size < 750 * 1024) {
-            url = await new Promise((res, rej) => {
-              const reader = new FileReader();
-              reader.onload = () => res(reader.result);
-              reader.onerror = rej;
-              reader.readAsDataURL(f);
-            });
-            pendingAudioStoragePath = '';
-          } else {
-            throw new Error('تعذّر الرفع لـ Storage — يمكنك تفعيل Storage في Firebase Console أو استخدام رابط MP3 مباشر: ' + (storageErr.code || storageErr.message));
-          }
+          throw new Error('تعذّر الرفع لـ Storage — تأكد من تفعيل Storage في Firebase Console أو استخدم رابط MP3 مباشر: ' + (storageErr.code || storageErr.message));
         }
         pendingAudioUrl = url;
         $('#c-audio-url').value = url;
@@ -499,6 +498,7 @@ async function boot() {
       e.target.value = '';
     };
     $('#audioDel').onclick = () => {
+      discardPendingAudio();
       pendingAudioUrl = '';
       pendingAudioStoragePath = '';
       $('#c-audio-url').value = '';
@@ -539,13 +539,20 @@ async function boot() {
           await F.setDoc(F.doc(db, 'config', 'main'), { branches }, { merge: true });
           toast(`تم تغيير وضع ${b.name} إلى ${b.landscape ? 'أفقي 🖥' : 'عمودي 📱'}`);
         } catch (err) {
-          toast('تعذّر الحفظ: ' + (err.code || err.message));
+          toast(saveErr(err));
         }
         return;
       }
       const customBtn = e.target.closest('[data-scr-custom]');
       if (customBtn) {
         openBranchModal(customBtn.dataset.scrCustom);
+        return;
+      }
+      const delBtn = e.target.closest('[data-scr-del]');
+      if (delBtn) {
+        const id = delBtn.dataset.scrDel;
+        if (!confirm(`حذف «${id}» من قائمة الشاشات؟ (لو الشاشة لسه شغالة بترجع تظهر مع نبضتها الجاية)`)) return;
+        try { await F.deleteDoc(F.doc(db, 'screens', id)); toast('تم الحذف من القائمة'); } catch (err) { toast('تعذّر الحذف: ' + (err.code || err.message)); }
       }
     });
 
@@ -558,7 +565,7 @@ async function boot() {
       const f = e.target.files[0];
       if (!f) return;
       try {
-        modalPendingQr = await prepare(f, 900, 0.92);
+        modalPendingQr = await prepareQr(f);
         $('#bmQrPrev').src = modalPendingQr;
         $('#bmQrStatus').textContent = 'تم اختيار QR خاص بالفرع (اضغط حفظ للتطبيق)';
       } catch (err) {
@@ -597,7 +604,7 @@ async function boot() {
         renderScreens();
         refreshPreview();
       } catch (err) {
-        toast('تعذّر الحفظ: ' + (err.code || err.message));
+        toast(saveErr(err));
       }
     };
   }
@@ -647,6 +654,12 @@ async function boot() {
   // ---- settings ----
   let pendingQr;   // undefined = unchanged, null = reset to default, string = new image
   let pendingAudioUrl = undefined, pendingAudioStoragePath = undefined;
+  const deleteAudioFile = (path) => { if (path) S.deleteObject(S.ref(storage, path)).catch((e) => console.warn('audio delete failed', path, e)); };
+  // delete an uploaded-but-not-saved audio file (never the one the screens are using)
+  function discardPendingAudio() {
+    const p = pendingAudioStoragePath;
+    if (p && p !== (conf.audio?.storagePath || '')) deleteAudioFile(p);
+  }
   function fillSettings() {
     const c = { ...DEFAULT_CONFIG, ...conf, footer: { ...DEFAULT_CONFIG.footer, ...(conf.footer || {}) } };
     if (document.activeElement && $('#t-settings').contains(document.activeElement)) return;   // do not overwrite while typing
@@ -686,7 +699,14 @@ async function boot() {
       qrImage: pendingQr === undefined ? (conf.qrImage || null) : pendingQr,
       branches: conf.branches?.length ? conf.branches : branches, updatedAt: F.serverTimestamp()
     };
-    try { await F.setDoc(F.doc(db, 'config', 'main'), next, { merge: true }); toast('تم حفظ الإعدادات ✓'); } catch (e) { toast('تعذّر الحفظ: ' + (e.code || e.message)); }
+    const oldAudioPath = conf.audio?.storagePath || '';
+    try {
+      await F.setDoc(F.doc(db, 'config', 'main'), next, { merge: true });
+      // the previous music file is no longer used by any screen: remove it from Storage
+      if (oldAudioPath && oldAudioPath !== next.audio.storagePath) deleteAudioFile(oldAudioPath);
+      pendingAudioStoragePath = undefined;
+      toast('تم حفظ الإعدادات ✓');
+    } catch (e) { toast(saveErr(e)); }
   }
 
   // ---- branch modal & customization ----
@@ -727,7 +747,7 @@ async function boot() {
   // ---- branches / screens ----
   let branchDraft = [];
   function renderBranches(keep) {
-    if (!keep) branchDraft = branches.map((b) => ({ ...b }));
+    if (!keep) branchDraft = branches.map((b) => ({ ...b, _orig: b.id }));   // _orig: id as saved, to detect renames
     $('#brList').innerHTML = branchDraft.map((b, i) => `
       <div class="br">
         <input type="text" dir="ltr" placeholder="id (jeddah)" value="${esc(b.id)}" data-bi="${i}" data-f="id" aria-label="معرّف الفرع">
@@ -746,19 +766,38 @@ async function boot() {
   }
 
   async function saveBranches() {
-    const list = branchDraft.map((b) => ({
-      id: b.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''),
+    const cleanId = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const kept = branchDraft.map((b) => ({ b, id: cleanId(b.id) })).filter(({ b, id }) => id && b.name.trim());
+    const list = kept.map(({ b, id }) => ({
+      id,
       name: b.name.trim(),
       landscape: b.landscape ? true : false,
       qrImage: b.qrImage || null,
       footer: b.footer || {}
-    })).filter((b) => b.id && b.name);
+    }));
     if (new Set(list.map((b) => b.id)).size !== list.length) { toast('معرّف الفرع مكرر'); return; }
+
+    // posts store branch ids: a renamed id must be carried over, a removed one hides posts targeted only at it
+    const renames = new Map(kept.filter(({ b, id }) => b._orig && b._orig !== id).map(({ b, id }) => [b._orig, id]));
+    const newIds = new Set(list.map((b) => b.id));
+    const removed = branches.map((b) => b.id).filter((id) => !newIds.has(id) && !renames.has(id));
+    const toRename = posts.filter((p) => (p.branches || []).some((id) => renames.has(id)));
+    const orphaned = posts.filter((p) => {
+      const bs = (p.branches || []).map((id) => renames.get(id) || id);
+      return bs.length && bs.some((id) => removed.includes(id)) && !bs.some((id) => newIds.has(id));
+    });
+    if (orphaned.length && !confirm(`تنبيه: ${orphaned.length} بوست مخصص فقط للفروع المحذوفة (${removed.join('، ')}) ولن يظهر في أي شاشة بعد الحذف. متابعة؟`)) return;
+
     try {
+      if (toRename.length) {
+        const batch = F.writeBatch(db);
+        toRename.forEach((p) => batch.update(F.doc(db, 'posts', p.id), { branches: [...new Set(p.branches.map((id) => renames.get(id) || id))] }));
+        await batch.commit();
+      }
       await F.setDoc(F.doc(db, 'config', 'main'), { branches: list }, { merge: true });
-      toast('تم حفظ الفروع ✓');
+      toast(toRename.length ? `تم حفظ الفروع ✓ (تم تحديث ${toRename.length} بوست للمعرّف الجديد)` : 'تم حفظ الفروع ✓');
     } catch (e) {
-      toast('تعذّر الحفظ');
+      toast(saveErr(e));
     }
   }
 
@@ -774,10 +813,18 @@ async function boot() {
       const txt = a == null ? 'لم تتصل بعد' : on ? 'متصلة' : `آخر اتصال قبل ${a > 3600000 ? Math.round(a / 3600000) + ' ساعة' : Math.round(a / 60000) + ' دقيقة'}`;
       const url = `${location.origin}/#${id}`;
       const cnt = posts.filter((p) => visibleFor(p, id)).length;
+      const br = branches.find((b) => b.id === id);
+      // known branch: orientation + customise; unknown screen (old id or junk heartbeat): remove from the list
+      const acts = br
+        ? `<button class="orient-btn ${br.landscape ? 'ls' : ''}" data-scr-orient="${esc(id)}" type="button">${br.landscape ? '🖥 أفقي' : '📱 عمودي'}</button>
+           <button class="btn sm ghost" data-scr-custom="${esc(id)}" type="button">⚙️ تخصيص</button>`
+        : `<span class="muted" style="font-size:12px">ليس فرعاً مسجلاً</span>
+           <button class="btn sm danger" data-scr-del="${esc(id)}" type="button">حذف من القائمة</button>`;
       return `<tr>
         <td>
           <strong>${esc(brName(id))}</strong>
           <div class="muted" style="font-size:12px" dir="ltr">${esc(id)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${acts}</div>
         </td>
         <td><span class="dot ${on ? 'on' : stale ? 'stale' : ''}"></span>${txt}</td>
         <td>${cnt}</td>

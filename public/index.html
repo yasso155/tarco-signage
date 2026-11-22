@@ -56,8 +56,12 @@ function fitStage() {
 addEventListener('resize', fitStage);
 
 // ---- engine setup ----
-await loadFonts();
-const [logo, qr] = await Promise.all([loadImg('assets/logo-white.png'), loadImg('assets/qr-default.png')]);
+// a missing font/logo must not leave the screen black: fall back to system font / no logo
+try { await loadFonts(); } catch (e) { console.warn('fonts failed, using fallback', e); }
+const [logo, qr] = await Promise.all([
+  loadImg('assets/logo-white.png').catch(() => null),
+  loadImg('assets/qr-default.png').catch(() => null)
+]);
 let engine = null;
 
 function setEngineOrientation(landscape) {
@@ -164,6 +168,7 @@ setInterval(apply, 60 * 1000);   // re-evaluate date ranges
 const bgAudio = document.getElementById('bgAudio');
 const unmutePill = document.getElementById('unmutePill');
 let userHasInteracted = false;
+let audioUrlSet = '';
 
 function updateAudio() {
   const a = conf.audio || {};
@@ -172,14 +177,19 @@ function updateAudio() {
 
   if (!enabled) {
     if (!bgAudio.paused) bgAudio.pause();
+    audioUrlSet = '';
     if (unmutePill) unmutePill.style.display = 'none';
     return;
   }
 
   bgAudio.volume = vol;
-  if (bgAudio.src !== a.url) {
+  // compare against the URL we set ourselves: bgAudio.src is always absolute, a.url may be relative
+  if (audioUrlSet !== a.url) {
+    audioUrlSet = a.url;
     bgAudio.src = a.url;
     bgAudio.load();
+  } else if (!bgAudio.paused) {
+    return;   // already playing this track: don't touch it
   }
 
   const p = bgAudio.play();

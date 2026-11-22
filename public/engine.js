@@ -100,7 +100,9 @@ export class Engine {
     }
     // release videos that are no longer in the playlist
     for (const it of this.items) if (it.video && !next.includes(it)) { try { it.video.pause(); it.video.removeAttribute('src'); it.video.load(); } catch (e) { /* ignore */ } }
-    this.items = next; this._act = null; this._layout();
+    // keep the playing item if it is still in the list, so a periodic refresh doesn't restart its video
+    if (!next.includes(this._act)) this._act = null;
+    this.items = next; this._layout();
   }
   _layout() {
     const hold = this.cfg.hold || 8;
@@ -310,7 +312,9 @@ export class LandscapeEngine {
       it.seconds = p.seconds; next.push(it);
     }
     for (const it of this.items) if (it.video && !next.includes(it)) { try { it.video.pause(); it.video.removeAttribute('src'); it.video.load(); } catch (e) { /* ignore */ } }
-    this.items = next; this._act = null; this._layout();
+    // keep the playing item if it is still in the list, so a periodic refresh doesn't restart its video
+    if (!next.includes(this._act)) this._act = null;
+    this.items = next; this._layout();
   }
 
   _layout() {

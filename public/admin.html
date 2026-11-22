@@ -333,8 +333,8 @@ async function boot() {
   async function startApp() {
     if (!started) {
       started = true;
-      await loadFonts();
-      const [logo, qr] = await Promise.all([loadImg('assets/logo-white.png'), loadImg('assets/qr-default.png')]);
+      try { await loadFonts(); } catch (e) { console.warn('fonts failed, using fallback', e); }
+      const [logo, qr] = await Promise.all([loadImg('assets/logo-white.png').catch(() => null), loadImg('assets/qr-default.png').catch(() => null)]);
       previewEngine = new Engine($('#pv'), { logo, defaultQr: qr });
       previewEngine.setConfig(DEFAULT_CONFIG);
       let t0 = performance.now(), paused = false, pausedAt = 0;

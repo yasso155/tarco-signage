@@ -213,10 +213,24 @@ function handleUserInteraction() {
     bgAudio.play().catch(() => {});
   }
 }
-window.addEventListener('click', handleUserInteraction);
-window.addEventListener('keydown', handleUserInteraction);
-window.addEventListener('touchstart', handleUserInteraction);
+['click', 'keydown', 'keyup', 'touchstart', 'pointerdown', 'focus', 'mousemove', 'wheel'].forEach((ev) => {
+  window.addEventListener(ev, handleUserInteraction, { passive: true });
+});
 if (unmutePill) unmutePill.addEventListener('click', handleUserInteraction);
+
+// Periodic attempt to play in case policy allows after page load or remote connection
+setInterval(() => {
+  const a = conf.audio || {};
+  if (a.enabled && a.url && bgAudio.paused && !userHasInteracted) {
+    const p = bgAudio.play();
+    if (p !== undefined) {
+      p.then(() => {
+        userHasInteracted = true;
+        if (unmutePill) unmutePill.style.display = 'none';
+      }).catch(() => {});
+    }
+  }
+}, 3000);
 
 // ---- data source ----
 if (DEMO) {
